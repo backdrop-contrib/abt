@@ -1,0 +1,65 @@
+<?php
+// $Id$
+
+/**
+ * @file abt.install
+ * Install, update and uninstall functions for the ABT module.
+ */
+
+// Include configuration file
+module_load_include('inc', 'abt', 'abtutils');
+
+/**
+ * Implements hook_uninstall().
+ */
+function abt_uninstall() {
+  AbtUtils::deleteField(AbtUtils::$fieldAccessView);
+  AbtUtils::deleteField(AbtUtils::$fieldAccessUpdate);
+  AbtUtils::deleteField(AbtUtils::$fieldAccessDelete);
+  
+  // Remove vocabularies
+  AbtUtils::deleteVocabulary(AbtUtils::$vocViewAccess);
+  AbtUtils::deleteVocabulary(AbtUtils::$vocUpdateAccess);
+  AbtUtils::deleteVocabulary(AbtUtils::$vocDeleteAccess);
+    
+  // Remove instances
+  AbtUtils::deleteFieldInstance(AbtUtils::$fieldAccessView);
+  AbtUtils::deleteFieldInstance(AbtUtils::$fieldAccessUpdate);
+  AbtUtils::deleteFieldInstance(AbtUtils::$fieldAccessDelete);
+  
+  // TODO
+  // Clean up the node_access table and remove all 'abt' grants.
+}
+
+/**
+ * Implements hook_enable().
+ */
+function abt_enable() {
+  // Add vocabularies
+  $t = get_t();
+  AbtUtils::createVocabulary(
+    $t('Delete Access by Term'),
+    $t('Vocabulary used by ABT module to store all permission flags for deleting.'),
+    AbtUtils::$vocDeleteAccess
+  );
+  AbtUtils::createVocabulary(
+    $t('Update Access by Term'),
+    $t('Vocabulary used by ABT module to store all permission flags for updating.'),
+    AbtUtils::$vocUpdateAccess
+  );
+  AbtUtils::createVocabulary(
+    $t('View Access by Term'),
+    $t('Vocabulary used by ABT module to store all permission flags for viewing.'),
+    AbtUtils::$vocViewAccess
+  );
+
+  // Add fields
+  AbtUtils::createTermReference(AbtUtils::$fieldAccessView, AbtUtils::$vocViewAccess);
+  AbtUtils::createTermReference(AbtUtils::$fieldAccessUpdate, AbtUtils::$vocUpdateAccess);
+  AbtUtils::createTermReference(AbtUtils::$fieldAccessDelete, AbtUtils::$vocDeleteAccess);
+    
+  // Add instances
+  AbtUtils::createFieldInstance(AbtUtils::$fieldAccessView, $t('View Access by Term'));
+  AbtUtils::createFieldInstance(AbtUtils::$fieldAccessUpdate, $t('Update Access by Term'));
+  AbtUtils::createFieldInstance(AbtUtils::$fieldAccessDelete, $t('Delete Access by Term'));
+}
