@@ -1,4 +1,3 @@
-; $Id$
 name = Access by Term (ABT)
 description = ABT controlls access based on relationship between node->term<-user.
 core = 7.x

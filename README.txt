@@ -1,5 +1,3 @@
-/* $Id$ */
-
 About ABT
 ABT (Access by Term) is a module that controls access based on relationship between node->term<-user where taxonomy terms allow for an hierarchical access control.
 In this document, sometimes taxonomy terms will be referenced as groups. I am hoping that this will help explaining how ABT works.

@@ -1,13 +1,16 @@
 <?php
-// $Id$
-
 /**
- * @file abt.module
+ * @file abt.module 
  * Module for controlling access by using user->term<-node relationship.
  */
 
-// Include configuration file.
-module_load_include('inc', 'abt', 'abtutils');
+/**
+ * Implements hook_init().
+ */
+function abt_init() {
+  // Include configuration file.
+  module_load_include('inc', 'abt', 'abtutils');
+}
 
 /**
  * Implements hook_node_grants().

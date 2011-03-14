@@ -1,6 +1,4 @@
 <?php
-// $Id$
-
 /**
  * @file abtutils.inc
  * File containing AbtUtils class.
