@@ -16,7 +16,7 @@ function abt_node_grants($account, $op) {
   $grants = array();
   $view_access = AbtUtils::$fieldAccessView;
   $update_access = AbtUtils::$fieldAccessUpdate;
-  $delete_acccess = AbtUtils::$fieldAccessDelete;
+  $delete_access = AbtUtils::$fieldAccessDelete;
 
   /** @todo try using $account->language when working with langs. */
   $lang = AbtUtils::getTermLang();
@@ -24,7 +24,7 @@ function abt_node_grants($account, $op) {
   
   switch ($op) {
     case 'view':
-      $terms = (!empty($usr->{"$view_access"})) ?  AbtUtils::getTermData($usr->{"$view_access"}[$lang]) : array();
+      $terms = (!empty($usr->{$view_access})) ?  AbtUtils::getTermData($usr->{$view_access}[$lang]) : array();
       $ids = AbtUtils::taxonomyGetChildrenAll($terms);
       $ids = array_merge(
         // access term  id list
@@ -36,13 +36,13 @@ function abt_node_grants($account, $op) {
       break;
     
     case 'update':
-      $terms = (!empty($usr->{"$update_access"})) ? AbtUtils::getTermData($usr->{"$update_access"}[$lang]) : array();
+      $terms = (!empty($usr->{$update_access})) ? AbtUtils::getTermData($usr->{$update_access}[$lang]) : array();
       $ids = AbtUtils::taxonomyGetChildrenAll($terms);
       $ids = array_keys($ids);
       break;
 
     case 'delete':
-      $terms = (!empty($usr->{"$delete_access"})) ? AbtUtils::getTermData($usr->{"$delete_access"}[$lang]) : array();
+      $terms = (!empty($usr->{$delete_access})) ? AbtUtils::getTermData($usr->{$delete_access}[$lang]) : array();
       $ids = AbtUtils::taxonomyGetChildrenAll($terms);
       $ids = array_keys($ids);
       break;
@@ -73,9 +73,9 @@ function abt_node_access_records($node) {
   /** @todo try using $account->language when working with langs. */
   $lang = AbtUtils::getTermLang(); 
 
-  if (!isset($node->{"$view_access"}) &&
-     !isset($node->{"$update_access"}) &&
-     !isset($node->{"$delete_access"})) {
+  if (!isset($node->{$view_access}) &&
+     !isset($node->{$update_access}) &&
+     !isset($node->{$delete_access})) {
     // Return false if you don't want to write to node_access table. 
     // If you want to allow reading of this node to all: return the array below;
     // 1 for view is important for nodes that have no access restrictions.
@@ -83,14 +83,14 @@ function abt_node_access_records($node) {
     return $grants;
   } 
 
-  $node_view = (isset($node->{"$view_access"}) && !empty($node->{"$view_access"})) ?
-    AbtUtils::getTermData($node->{"$view_access"}[$lang]) : array();
+  $node_view = (isset($node->{$view_access}) && !empty($node->{$view_access})) ?
+    AbtUtils::getTermData($node->{$view_access}[$lang]) : array();
 
-  $node_update = (isset($node->{"$update_access"}) && !empty($node->{"$update_access"})) ?
-    AbtUtils::getTermData($node->{"$update_access"}[$lang]) : array();
+  $node_update = (isset($node->{$update_access}) && !empty($node->{$update_access})) ?
+    AbtUtils::getTermData($node->{$update_access}[$lang]) : array();
 
-  $node_delete = (isset($node->{"$delete_access"}) && !empty($node->{"$delete_access"})) ?
-    AbtUtils::getTermData($node->{"$delete_access"}[$lang]) : array();
+  $node_delete = (isset($node->{$delete_access}) && !empty($node->{$delete_access})) ?
+    AbtUtils::getTermData($node->{$delete_access}[$lang]) : array();
 
   $node_view_ids = AbtUtils::taxonomyGetParentsAll($node_view, FALSE);
   $node_update_ids = AbtUtils::taxonomyGetParentsAll($node_update, FALSE);
