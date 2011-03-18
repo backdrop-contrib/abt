@@ -30,7 +30,7 @@ function abt_node_grants($account, $op) {
         // access term  id list
         array_keys($ids),
         // This zero makes sure that every user
-        // has view-access to unrestricted nodes
+        // has view access to unrestricted nodes
         array(0)
       );
       break;
@@ -38,13 +38,25 @@ function abt_node_grants($account, $op) {
     case 'update':
       $terms = (!empty($usr->{$update_access})) ? AbtUtils::getTermData($usr->{$update_access}[$lang]) : array();
       $ids = AbtUtils::taxonomyGetChildrenAll($terms);
-      $ids = array_keys($ids);
+      $ids = array_merge(
+        // access term  id list
+        array_keys($ids),
+        // This zero makes sure that every user
+        // has update access to unrestricted nodes
+        array(0)
+      );
       break;
 
     case 'delete':
       $terms = (!empty($usr->{$delete_access})) ? AbtUtils::getTermData($usr->{$delete_access}[$lang]) : array();
       $ids = AbtUtils::taxonomyGetChildrenAll($terms);
-      $ids = array_keys($ids);
+      $ids = array_merge(
+        // access term  id list
+        array_keys($ids),
+        // This zero makes sure that every user
+        // has delete access to unrestricted nodes
+        array(0)
+      );
       break;
     
     default:
@@ -53,7 +65,6 @@ function abt_node_grants($account, $op) {
   }
 
   $grants['abt'] = $ids;
-  
   return $grants;
 }
 
@@ -95,6 +106,13 @@ function abt_node_access_records($node) {
   $node_view_ids = AbtUtils::taxonomyGetParentsAll($node_view, FALSE);
   $node_update_ids = AbtUtils::taxonomyGetParentsAll($node_update, FALSE);
   $node_delete_ids = AbtUtils::taxonomyGetParentsAll($node_delete, FALSE);
+  
+  // If no term was selected for the given access mode 
+  // set nid to 0 and allow everyone to view xor update xor delete
+  $default = array(0 => 'default');
+  empty($node_view_ids) && $node_view_ids = $default;
+  empty($node_update_ids) && $node_update_ids = $default; 
+  empty($node_delete_ids) && $node_delete_ids = $default; 
   
   foreach ($node_view_ids as $term_id => $term_label) {
     $update = (isset($node_update_ids[$term_id])) ? 1 : 0;

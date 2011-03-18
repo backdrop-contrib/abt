@@ -21,32 +21,8 @@ class AbtUtils {
    * 
    * @var string
    */
-  public static $vocViewAccess = 'abt_view_access';
+  public static $vocAccess = 'abt_access';
   
-  /** 
-   * Static property used as a mashine name of the 
-   * vocabulary where we store the UPDATE access terms.
-   * 
-   * It is also used as the name of the drupal variable 
-   * stored in the database. Variable stored in the 
-   * database holds the vocabulary id (vid).
-   * 
-   * @var string
-   */
-  public static $vocUpdateAccess = 'abt_update_access';
- 
-  /** 
-   * Static property used as a mashine name of the 
-   * vocabulary where we store the DELETE access terms.
-   * 
-   * It is also used as the name of the drupal variable 
-   * stored in the database. Variable stored in the 
-   * database holds the vocabulary id (vid).
-   * 
-   * @var string
-   */
-  public static $vocDeleteAccess = 'abt_delete_access'; 
- 
   /** 
    * Static property used as a term reference field name 
    * 
