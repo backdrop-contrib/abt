@@ -4,13 +4,8 @@
  * Install, update and uninstall functions for the ABT module.
  */
 
-/**
- * Implements hook_init().
- */
-function abt_init() {
-  // Include configuration file.
-  module_load_include('inc', 'abt', 'abtutils');
-}
+// Include configuration file.
+module_load_include('inc', 'abt', 'abtutils');
 
 /**
  * Implements hook_uninstall().
