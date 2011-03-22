@@ -22,7 +22,7 @@ Go to Account fields management and use Add existing field to add a term referen
  2. field_abt_access_update is used for setting the update access to you nodes.
  3. field_abt_access_delete is used for setting the delete access to you nodes.
 
-Add all three if you want to control view/update/delete aspects of your nodes. Depending on you needs you might consider allowing users to be part of more then one group (taxonomy term). In this case you can choose select box as the widget and allow multiple selections.
+You <em>must</em> add all three fields (view/update/delete). Depending on you needs you might consider allowing users to be part of more then one group (taxonomy term). In this case you can choose select box as the widget and allow multiple selections.
 While you are adding fields to the user account, you can also set the default values for these fields.
 ..............................
 
@@ -33,7 +33,7 @@ As in the previous step, you want to add fields using the Add existing field fun
   2. field_abt_access_update is used for setting the update access for your user.
   3. field_abt_access_delete is used for setting the delete access for your user.
   
-Depending on your needs you might consider allowing nodes to be connected to more then one group (taxonomy term). In this case you choose select box as the widget and allow multiple selections. Here you can also set the default values for nodes.
+You <em>must</em> add all three fields (view/update/delete). Depending on your needs you might consider allowing nodes to be connected to more then one group (taxonomy term). In this case you choose select box as the widget and allow multiple selections. Here you can also set the default values for nodes.
 
 ---------
 | Usage |
