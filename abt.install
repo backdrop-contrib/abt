@@ -4,27 +4,11 @@
  * Install, update and uninstall functions for the ABT module.
  */
 
-// Include configuration file.
-module_load_include('inc', 'abt', 'abtutils');
-
 /**
  * Implements hook_uninstall().
  */
 function abt_uninstall() {
-  AbtUtils::deleteField(AbtUtils::$fieldAccessView);
-  AbtUtils::deleteField(AbtUtils::$fieldAccessUpdate);
-  AbtUtils::deleteField(AbtUtils::$fieldAccessDelete);
-  
-  // Remove vocabularies
-  AbtUtils::deleteVocabulary(AbtUtils::$vocAccess);
-  //AbtUtils::deleteVocabulary(AbtUtils::$vocUpdateAccess);
-  //AbtUtils::deleteVocabulary(AbtUtils::$vocDeleteAccess);
-    
-  // Remove instances
-  AbtUtils::deleteFieldInstance(AbtUtils::$fieldAccessView);
-  AbtUtils::deleteFieldInstance(AbtUtils::$fieldAccessUpdate);
-  AbtUtils::deleteFieldInstance(AbtUtils::$fieldAccessDelete);
-  
+
   // TODO
   // Clean up the node_access table and remove all 'abt' grants.
 }
@@ -33,33 +17,41 @@ function abt_uninstall() {
  * Implements hook_enable().
  */
 function abt_enable() {
-  // Add vocabularies
-  $t = get_t();
-  /*
-  AbtUtils::createVocabulary(
-    $t('Delete Access by Term'),
-    $t('Vocabulary used by ABT module to store all permission flags for deleting.'),
-    AbtUtils::$vocDeleteAccess
-  );
-  AbtUtils::createVocabulary(
-    $t('Update Access by Term'),
-    $t('Vocabulary used by ABT module to store all permission flags for updating.'),
-    AbtUtils::$vocUpdateAccess
-  );
-  */
-  AbtUtils::createVocabulary(
-    $t('Access by Term'),
-    $t('Vocabulary used by ABT module to store all permission flags'),
-    AbtUtils::$vocAccess
-  );
+  drupal_set_message('Access by Term enabled. Do not forget to <a href="people/permissions">set the permissions</a>.');
+}
 
-  // Add fields
-  AbtUtils::createTermReference(AbtUtils::$fieldAccessView, AbtUtils::$vocAccess);
-  AbtUtils::createTermReference(AbtUtils::$fieldAccessUpdate, AbtUtils::$vocAccess);
-  AbtUtils::createTermReference(AbtUtils::$fieldAccessDelete, AbtUtils::$vocAccess);
-    
-  // Add instances
-  AbtUtils::createFieldInstance(AbtUtils::$fieldAccessView, $t('View Access by Term'));
-  AbtUtils::createFieldInstance(AbtUtils::$fieldAccessUpdate, $t('Update Access by Term'));
-  AbtUtils::createFieldInstance(AbtUtils::$fieldAccessDelete, $t('Delete Access by Term'));
+
+function abt_schema() {
+  $schema['abt_map'] = array(
+    'description' => 'Holds the list of fieldnames which will control node access.',
+    'fields' => array(
+      'field_name' => array(
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The field name.',
+        'translatable' => FALSE,
+      ),
+      'ctrl_view_access' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Whether this field controls the view access.',
+      ),
+      'ctrl_update_access' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Whether this field controls the update access.',
+      ),
+      'ctrl_delete_access' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Whether this field controls the delete access.',
+      ),
+    ),
+  );
+  return $schema;
 }

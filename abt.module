@@ -1,8 +1,14 @@
 <?php
 /**
  * @file abt.module 
- * Module for controlling access by using user->term<-node relationship.
+ * Module for controling access by using user->term<-node relationship.
  */
+
+/**
+ * TODO: Register permissions: "assign vocabulary as access voc" (hook)
+ * TODO: Use Utils::createFieldInstance() to append the field to node_types,users,osv...
+ */
+
 
 /**
  * Implements hook_node_grants().
@@ -14,57 +20,23 @@
  */
 function abt_node_grants($account, $op) {
   $grants = array();
-  $view_access = AbtUtils::$fieldAccessView;
-  $update_access = AbtUtils::$fieldAccessUpdate;
-  $delete_access = AbtUtils::$fieldAccessDelete;
-
-  /** @todo try using $account->language when working with langs. */
-  $lang = AbtUtils::getTermLang();
   $usr = user_load($account->uid);
-  
-  switch ($op) {
-    case 'view':
-      $terms = (!empty($usr->{$view_access})) ?  AbtUtils::getTermData($usr->{$view_access}[$lang]) : array();
-      $ids = AbtUtils::taxonomyGetChildrenAll($terms);
-      $ids = array_merge(
-        // access term  id list
-        array_keys($ids),
-        // This zero makes sure that every user
-        // has view access to unrestricted nodes
-        array(0)
-      );
-      break;
-    
-    case 'update':
-      $terms = (!empty($usr->{$update_access})) ? AbtUtils::getTermData($usr->{$update_access}[$lang]) : array();
-      $ids = AbtUtils::taxonomyGetChildrenAll($terms);
-      $ids = array_merge(
-        // access term  id list
-        array_keys($ids),
-        // This zero makes sure that every user
-        // has update access to unrestricted nodes
-        array(0)
-      );
-      break;
+  $lang = !empty($usr->languange) ? $usr->languange : LANGUAGE_NONE;
+  $access_map = db_select('abt_map', 'a')->fields('a')->execute();
+  while($r = $access_map->fetchAssoc()) {
+    // This zero makes sure that every user has update access to unrestricted nodes.
+    $grants['abt_'.$r['field_name']] = array(0);
+    if(isset($usr->{$r['field_name']})) {  // Current realm is applicable on this user.
+      // Get the tids from users field (realm).
+      $terms = (!empty($usr->{$r['field_name']}[$lang])) ? $usr->{$r['field_name']}[$lang] : array(); 
 
-    case 'delete':
-      $terms = (!empty($usr->{$delete_access})) ? AbtUtils::getTermData($usr->{$delete_access}[$lang]) : array();
-      $ids = AbtUtils::taxonomyGetChildrenAll($terms);
-      $ids = array_merge(
-        // access term  id list
-        array_keys($ids),
-        // This zero makes sure that every user
-        // has delete access to unrestricted nodes
-        array(0)
-      );
-      break;
-    
-    default:
-      $ids = array();
-      break;
+      isset($r['ctrl_'.$op.'_access']) /* Check if this operation is supported by the realm */
+        && ($r['ctrl_'.$op.'_access'] == 1) 
+          /* Get the children of terms and assign them all to the current realm. */
+          && ($grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms)); 
+    }
+
   }
-
-  $grants['abt'] = $ids;
   return $grants;
 }
 
@@ -76,69 +48,176 @@ function abt_node_grants($account, $op) {
  * fields - and then we act on that.
  */
 function abt_node_access_records($node) {
-  $grants = array();
-  $view_access = AbtUtils::$fieldAccessView;
-  $update_access = AbtUtils::$fieldAccessUpdate;
-  $delete_access = AbtUtils::$fieldAccessDelete;
-
-  /** @todo try using $account->language when working with langs. */
-  $lang = AbtUtils::getTermLang(); 
-
-  if (!isset($node->{$view_access}) &&
-     !isset($node->{$update_access}) &&
-     !isset($node->{$delete_access})) {
-    // Return false if you don't want to write to node_access table. 
-    // If you want to allow reading of this node to all: return the array below;
-    // 1 for view is important for nodes that have no access restrictions.
-    $grants[] = AbtUtils::grantConstruct($node->nid, 0, 1, 0, 0, 0);
-    return $grants;
-  } 
-
-  $node_view = (isset($node->{$view_access}) && !empty($node->{$view_access})) ?
-    AbtUtils::getTermData($node->{$view_access}[$lang]) : array();
-
-  $node_update = (isset($node->{$update_access}) && !empty($node->{$update_access})) ?
-    AbtUtils::getTermData($node->{$update_access}[$lang]) : array();
-
-  $node_delete = (isset($node->{$delete_access}) && !empty($node->{$delete_access})) ?
-    AbtUtils::getTermData($node->{$delete_access}[$lang]) : array();
-
-  $node_view_ids = AbtUtils::taxonomyGetParentsAll($node_view, FALSE);
-  $node_update_ids = AbtUtils::taxonomyGetParentsAll($node_update, FALSE);
-  $node_delete_ids = AbtUtils::taxonomyGetParentsAll($node_delete, FALSE);
+  $tids = $grants = array();
+  $access_map = db_select('abt_map', 'a')->fields('a')->execute();
   
-  // If no term was selected for the given access mode 
-  // set nid to 0 and allow everyone to view xor update xor delete
-  $default = array(0 => 'default');
-  empty($node_view_ids) && $node_view_ids = $default;
-  empty($node_update_ids) && $node_update_ids = $default; 
-  empty($node_delete_ids) && $node_delete_ids = $default; 
-  
-  foreach ($node_view_ids as $term_id => $term_label) {
-    $update = (isset($node_update_ids[$term_id])) ? 1 : 0;
-    unset($node_update_ids[$term_id]);
-
-    $delete = (isset($node_delete_ids[$term_id])) ? 1 : 0;
-    unset($node_delete_ids[$term_id]);
-
-    $grants[] = AbtUtils::grantConstruct($node->nid, $term_id, 1, $update, $delete);
-  }
-
-  if (isset($node_update_ids) && !empty($node_update_ids)) {
-    foreach ($node_update_ids as $term_id => $term_label) {
-      $delete = (isset($node_delete_ids[$term_id])) ? 1 : 0;
-      unset($node_delete_ids[$term_id]);
-      $grants[] = AbtUtils::grantConstruct($node->nid, $term_id, 1, 1, $delete);
+  while($realm = $access_map->fetchAssoc()) {
+    if(!isset($node->{$realm['field_name']})) { continue; }
+    
+    $field_data =& $node->{$realm['field_name']}[$node->language];
+    $tids = (!empty($field_data)) ? $field_data : array(array('tid' => 0));
+    
+    for($i = 0; $i < count($tids); $i++) {
+      $grants[] = AbtUtils::grantConstruct(
+        $node->nid, 
+        'abt_'.$realm['field_name'], 
+        $tids[$i]['tid'], 
+        $realm['ctrl_view_access'], 
+        $realm['ctrl_update_access'], 
+        $realm['ctrl_delete_access']
+      );
     }
   }
-  
-  if (isset($node_delete_ids) && !empty($node_delete_ids)) {
-    foreach ($node_delete_ids as $term_id => $term_label) {
-      $grants[] = AbtUtils::grantConstruct($node->nid, $term_id, 1, 1, 1);
-    }
-  }
-
   return $grants;
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function abt_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id) {
+  // Make sure we are dealing with a term reference
+  if(!isset($form['#field']['type']) XOR $form['#field']['type'] != 'taxonomy_term_reference') {
+    return;
+  }
+  
+  $no_perms = (
+      !user_access('assign view access control') 
+    & !user_access('assign update access control') 
+    & !user_access('assign delete access control')
+  );
+  
+  $current = db_select('abt_map', 'a')
+    ->fields('a')
+    ->condition('field_name', $form['#field']['field_name'])
+    ->execute()
+    ->fetchAssoc();
+  
+  $form['abt'] = array(
+      '#type' => 'fieldset', 
+      '#title' => t('Access by Term'), 
+      '#weight' => -1, 
+      '#collapsible' => TRUE, 
+      '#collapsed' => FALSE,
+      '#description' => ($no_perms) ? 
+        '<p>'.t('Sorry but you have no permission to assign access control to fields. Talk to your administrator.').'</p>' : 
+        '<p>'.t('<em>Note: by saving these settings, your content permissions will get rebuilt. This is a must if your changes are to take place.</em>').'</p>'
+  );
+  
+  if(user_access('assign view access control')) {
+    $form['abt']['abt_enable_view_control'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Control "view" access with this field.'),
+      '#description' => t('Set this checkbox to control the "<strong>view</strong>" access for the content type <strong>@ct</strong>.', array('@ct' => $form['#instance']['bundle'])),
+      '#default_value' => (isset($current['ctrl_view_access']) ? $current['ctrl_view_access'] : 0),
+    );
+  }
+  if(user_access('assign update access control')) {
+    $form['abt']['abt_enable_update_control'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Control "update" access with this field.'),
+      '#description' => t('Set this checkbox to control the "<strong>update</strong>" access for the content type <strong>@ct</strong>.', array('@ct' => $form['#instance']['bundle'])),
+      '#default_value' => (isset($current['ctrl_update_access']) ? $current['ctrl_update_access'] : 0),
+    );
+  }
+  if(user_access('assign delete access control')) {  
+    $form['abt']['abt_enable_delete_control'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Control "delete" access with this field.'),
+      '#description' => t('Set this checkbox to control the "<strong>delete</strong>" access for the content type <strong>@ct</strong>.', array('@ct' => $form['#instance']['bundle'])),
+      '#default_value' => (isset($current['ctrl_delete_access']) ? $current['ctrl_delete_access'] : 0),
+    ); 
+  }
+  /* For a feature comming up */
+  // $form['abt']['assistent'] = array(
+  //     '#type' => 'fieldset', 
+  //     '#title' => t('Assistent'), 
+  //     //'#weight' => -1, 
+  //     '#collapsible' => TRUE, 
+  //     '#collapsed' => FALSE,
+  //     '#description' => '<p>'.t('Create field instances.').'</p>',
+  // );
+  // 
+  // $form['abt']['assistent']['auto_create_instances'] = array(
+  //   '#type' => 'checkbox',
+  //   '#title' => t('Control "delete" access with this field.'),
+  //   '#description' => t('Set this checkbox to create field instances on the fly'),
+  //   '#default_value' => (isset($current['ctrl_delete_access']) ? $current['ctrl_delete_access'] : 0),
+  // ); 
+  // $form['#instance']['entity_type'];
+  // $form['#field']['bundles']['node']
+  // $form['#field']['bundles']['user']
+  
+  $form['#submit'][] = 'abt_form_field_ui_field_edit_form_submit';
+}
+
+function abt_form_field_ui_field_edit_form_submit($form_data) {
+  if(!isset($form_data['abt']['abt_enable_view_control']) && !isset($form_data['abt']['abt_enable_view_control']) && $form_data['abt']['abt_enable_delete_control']) {
+    return;
+  }
+  $field_name = $form_data['#field']['field_name'];
+  $ctrl_view_access = user_access('assign view access control') ? (int) $form_data['abt']['abt_enable_view_control']['#checked'] : 0;
+  $ctrl_update_access = user_access('assign update access control') ? (int) $form_data['abt']['abt_enable_update_control']['#checked'] : 0;
+  $ctrl_delete_access = user_access('assign delete access control') ? (int) $form_data['abt']['abt_enable_delete_control']['#checked'] : 0;
+  
+  db_delete('abt_map')->condition('field_name', $field_name)->execute();
+  
+  if($ctrl_view_access + $ctrl_update_access + $ctrl_delete_access > 0) {
+    db_insert('abt_map')
+      ->fields(array(
+        'field_name' => $field_name,  
+        'ctrl_view_access' => $ctrl_view_access,
+        'ctrl_update_access' => $ctrl_update_access,
+        'ctrl_delete_access' => $ctrl_delete_access,
+      ))
+      ->execute();
+  } 
+  /* For a feature comming up. */
+  // createFieldInstance($field_name, $field_title, $entity_type, $bundle)
+  node_access_rebuild();
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter().
+ * 
+ * Here we tell users if a field is beeing used for access control. 
+ * Even which ascpect of access control the field is defining (view,update,delete).
+ */
+function abt_form_node_form_alter(&$form, &$form_state, $form_id) {
+  $access_map = db_select('abt_map', 'a')->fields('a')->execute();
+  while($realm = $access_map->fetchAssoc()) {
+    if(isset($form[$realm['field_name']])) {
+      $field =& $form[$realm['field_name']];
+      $view = ($realm['ctrl_view_access'] == 1) ? t('view').' ' : '';
+      $update = ($realm['ctrl_update_access'] == 1) ? t('update').' ' : '';
+      $delete = ($realm['ctrl_delete_access'] == 1) ? t('delete').' ' : '';
+      
+      $msg = str_replace(' ', ', ', trim($view.$update.$delete));
+      $msg = (!empty($msg)) ? ' <em>(Access control enabled for: '.$msg.')</em>' : '';
+      
+      $field[LANGUAGE_NONE]['#title'] = $field[LANGUAGE_NONE]['#title'].$msg;
+    }
+  }
+}
+
+/**
+ * Implements hook_perm().
+ */
+function abt_permission() {
+  return array(
+    'assign view access control' => array(
+      'title' => t('Assign fields to control node <strong>view</strong> access'),
+      'restrict access' => TRUE,
+    ),
+    'assign update access control' => array(
+      'title' => t('Assign fields to control node <strong>update</strong> access'),
+      'restrict access' => TRUE,
+    ),
+    'assign delete access control' => array(
+      'title' => t('Assign fields to control node <strong>delete</strong> access'),
+      'restrict access' => TRUE,
+    ),
+  );
 }
 
 /**
@@ -151,53 +230,12 @@ function abt_help($path, $arg) {
     $out .= '<p>' . t('ABT (Access by Term) is a module that controls access based on relationship between node-&gt;term&lt;-user where taxonomy terms allow for an hierarchical access control.') . '</p>';
     $out .= '<p><em>' . t('In this document, sometimes taxonomy terms will be referenced as groups. I am hoping that this will help explaining how ABT works.') . '</em></p>';
     
-    $out .= '<h3>' . t('Installation') . '</h3>';
-    $out .= '<p>' . t('Install &amp; enable.') . '</p>';
-    
-    $out .= '<h3>' . t('Setup') . '</h3>';
-    $out .= '<ul>';
-    $out .= '<li>';
-    $out .= '<p>' . t('<strong>Step 1:</strong>') . '</p>';
-    $out .= t('Go to <a href="@url_taxonomy">Taxonomy panel</a> and you should be able to see the new vocabulary <em>Access by Term</em> in the list. ', array('@url_taxonomy' => url('admin/structure/taxonomy')));
-    $out .= t('Note that ABT module needs to be <em>installed and enabled</em> for vocabulary to show. ');
-    $out .= t('You can already add your terms. Don\'t forget to think hierarchically. ABT will allow for access permission inheritance, bubbling.');
-    $out .= '</li>';
-    
-    $out .= '<li>';
-    $out .= '<p>' . t('<strong>Step 2:</strong>') . '</p>';
-    $out .= t('Go to <a href="@url_account_conf">Account fields management</a> and use <strong>Add existing field</strong> to add a term reference to user accounts.&nbsp;', array('@url_account_conf' => url('admin/config/people/accounts/fields')));
-    $out .= t('When selecting the field you will see three fields that belong to ABT module:');
-    $out .= '<ol>';
-    $out .= '<li>' . t('<em>@fva</em> is used for setting the view access to you nodes.', array('@fva' => AbtUtils::$fieldAccessView)) . '</li>';
-    $out .= '<li>' . t('<em>@$fua</em> is used for setting the update access to you nodes.', array('@$fua' => AbtUtils::$fieldAccessUpdate)) . '</li>';
-    $out .= '<li>' . t('<em>@$fda</em> is used for setting the delete access to you nodes.', array('@$fda' => AbtUtils::$fieldAccessDelete)) . '</li>';
-    $out .= '</ol>';
-    $out .= t('Add all three if you want to control view/update/delete aspects of your nodes.&nbsp;');
-    $out .= t('Depending on you needs you might consider allowing users to be part of more then one <em>group (taxonomy term)</em>. In this case you can choose select box as the widget and allow multiple selections. ');
-    $out .= '<p>' . t('While you are adding fields to the user account, you can also set the default values for these fields.') . '</p>';
-    $out .= '</li>';
-
-    $out .= '<li>';
-    $out .= '<p>' . t('<strong>Step 3:</strong>') . '</p>';
-    $out .= t('Go to <a href="@url_c_types">Content types management</a> and proceed with <em>any</em> content type you want to control access to. Click on the <strong>manage fields</strong> of the content type you want to work with.&nbsp;', array('@url_c_types' => url('admin/structure/types')));
-    $out .= '<p>' . t('As in the previous step, you want to add fields using the <strong>Add existing field</strong> functionality. Just like before, you will see three fields that belong to ABT module:') . '</p>';
-    $out .= '<ol>';
-    $out .= '<li>' . t('<em>@fva</em> is used for setting the view access for your user.', array('@fva' => AbtUtils::$fieldAccessView)) . '</li>';
-    $out .= '<li>' . t('<em>@$fua</em> is used for setting the update access for your user.', array('@$fua' => AbtUtils::$fieldAccessUpdate)) . '</li>';
-    $out .= '<li>' . t('<em>@$fda</em> is used for setting the delete access for your user.', array('@$fda' => AbtUtils::$fieldAccessDelete)) . '</li>';
-    $out .= '</ol>';
-    $out .= t('Depending on your needs you might consider allowing nodes to be connected to more then one <em>group (taxonomy term)</em>. In this case you choose select box as the widget and allow multiple selections.');
-    $out .= '<p>' . t('Here you can also set the default values for nodes.') . '</p>';
-    $out .= '</li>'; 
-    $out .= '</ul>';
-    
-    
     $out .= '<h3>' . t('Usage') . '</h3>';
-    $out .= t('By now you should be set to go.');
     $out .= '<ul>';
     $out .= '<li>' . t('Add some taxonomy terms in the vocabularies you intent to use. Do not forget to think hierarchically. ABT handles access inheritance in such way that parent has equal or more access then it\'s child.') . '</li>';
-    $out .= '<li>' . t('Add/edit user an old assigning him/her appropriate  access terms.') . '</li>';
-    $out .= '<li>' . t('Add/edit content and assign appropriate  access terms.') . '</li>';
+    $out .= '<li>' . t('Add/edit a field/field_instance to the content types you want to control and the same field to the user account.') . '</li>';
+    $out .= '<li>' . t('"Tag" users with appropriate access terms/groups.') . '</li>';
+    $out .= '<li>' . t('"Tag" nodes with appropriate access terms/groups.') . '</li>';
     $out .= '</ul>';
 
     return $out;
