@@ -1,0 +1,286 @@
+<?php
+/*
+* Requirements:
+* - abt installed
+* - 3 vocabularies created
+* - insert terms into vocabularies
+* - Create a content type
+* - Create 3 taxonomy reference fields for the user
+* - Create 3 taxonomy reference fields for out content type
+* - Create users: authuser1, authuser2, unauth1, admin
+* 
+* Test cases:
+* - Set "taxonomy reference" field as "access controler"
+* - Unset "taxonomy reference" field as "access controler"
+* - Set "non-taxonomy reference" field as "access controler"
+* 
+* - Access permission scenarios:
+*   # one field controls all
+*   - user tids:2 => node tids:2 (assert:view,update,delete)
+*   - user tids:1 => node tids:2 (assert:view,update,delete)
+*   - user tids:3 => node tids:2 (assert:view,update,delete)
+* 
+*   # one field for each aspect (view,update,delete)
+*   - user tids:1,1,1 => node tids:1,1,1 (assert:view,update,delete)
+*   - user tids:1,1,1 => node tids:2,2,2 (assert:view,update,delete)
+*   - user tids:3,3,3 => node tids:2,2,2 (assert:view,update,delete)
+* 
+*   # one field for each aspect (view,update,delete)
+*   - user tids:1,1,1 => node tids:1,1,1 (assert:view,update,delete)
+*   - user tids:1,1,1 => node tids:2,2,2 (assert:view,update,delete)
+*   - user tids:3,3,3 => node tids:2,2,2 (assert:view,update,delete)
+* 
+* Settings for the taxonomy reference fields.
+* Test view,update,delete access with one field
+* Test view access with three separate fields
+*/
+// $this->drupalGet($path, $options = array())
+// $this->drupalPost($path, $edit, $submit, array $options = array(), array $headers = array())
+// $this->drupalCreateContentType($settings)
+// $this->clickLink($label, $index = 0)
+// $this->drupalCreateUser($permissions = NULL)
+// $this->drupalLogin($user = NULL)
+// $this->drupalLogout()
+// $this->drupalCreateNode($settings)
+
+class ABTWebTestCase extends DrupalWebTestCase {
+  protected $admin_user;
+  protected $authorized_user;
+  protected $unauthorized_user;
+  protected $vocabularies;
+  protected $terms = array();
+  protected $content_type;
+  protected $fields = array();
+  protected $field_instances = array();
+
+  function setUp() {
+    parent::setUp();
+    $this->setUpTaxonomy();
+    $this->setUpContentStructure();
+    $this->setUpUsers();
+  }
+  
+  /* Partial setup */
+  function setUpTaxonomy($numberOfTerms = 6) {
+    $this->vocabularies = $this->createVocabulary();
+    $this->terms = $this->populateVocabularies($this->vocabularies);
+  }
+
+  function setUpUsers() {
+    $this->admin_user = $this->drupalCreateUser(array('administer permissions', 'access user profiles', 'administer site configuration', 'administer modules', 'administer users'));
+    $this->authorized_user = $this->drupalCreateUser();
+    $this->unauthorized_user = $this->drupalCreateUser();
+    #$this->unauthorized_user->{$this->field_instances['user'][0]['field_name']}['und'][]['tid'] = $this->terms[0]->tid;
+    user_save($this->unauthorized_user);
+    $this->drupalLogin($this->admin_user);
+    $this->drupalLogin($this->authorized_user);
+  }
+
+  function setUpContentStructure() {
+    $this->content_type = $this->createContentType();
+    $this->fields = $this->createFields($this->vocabularies);
+    $this->field_instances = $this->createFieldInstances($this->fields, $this->content_type);
+  }
+  
+  /* Helpers */
+  function tagUser(&$user, $field_name, $tids = array()) {
+    for($i = 0; $i < count($tids); $i++) {
+      $user->{$field_name}['und'][]['tid'] = $tids[$i];
+    }
+    user_save($user);
+    #$this->unauthorized_user->{$this->field_instances['user'][0]['field_name']}['und'][]['tid'] = $this->terms[0]->tid;
+  }
+  
+  function createVocabulary($numberOfVocs = 3) {
+    for($i = 0; $i < $numberOfVocs; $i++) {
+      $vocs[$i] = (object) array(
+        'name' => $this->randomName(),
+        'machine_name' => drupal_strtolower($this->randomName()),
+      );
+      taxonomy_vocabulary_save($vocs[$i]);
+    }
+    return $vocs;
+  }
+
+  function populateVocabularies($vocs, $numberOfTerms = 6) {
+    $numberOfTerms = ($numberOfTerms <= 0) ? 3 : $numberOfTerms;
+    $terms = array();
+    for($i = 0; $i < count($vocs); $i++) {
+      $parent = 0;
+      for($j = 0; $j < $numberOfTerms; $j++) {
+        $term = (object) array(
+          'vid' => $vocs[$i]->vid,
+          'name' => $this->randomName(),
+          'parent' => $parent,
+        );
+        taxonomy_term_save($term);
+        $parent = $term->tid;
+        $terms[$i][$j] = $term;     
+      }
+    }
+    return $terms;
+  }
+
+  function createContentType() {
+    // Create a content type programmaticaly.
+    return $this->drupalCreateContentType();
+  }
+  
+  function createFields($vocs) {
+    $fields = array();
+    for($i = 0; $i < count($vocs); $i++) {
+      $field = array(
+        'field_name' => drupal_strtolower($this->randomName() . '_field_name'), 
+        'type' => 'taxonomy_term_reference', 
+        'cardinality' => FIELD_CARDINALITY_UNLIMITED,
+        'settings' => array(
+          'allowed_values' => array(
+            array(
+              'vocabulary' => $vocs[$i]->machine_name, 
+              'parent' => 0,
+             ),
+           ),
+         ),
+      );
+      field_create_field($field);
+      $fields[$i] = $field;
+    }
+    return $fields;
+  }
+  function createFieldInstances($field, $content_type, $entity_types = array('node', 'user')) {
+    $instances = $entity_types;
+    for($i = 0; $i < count($entity_types); $i++) {
+      for($j = 0; $j < count($field); $j++) {
+        $instances[$entity_types[$i]][$j] = array(
+          'field_name' => $field[$j]['field_name'],
+          'entity_type' => $entity_types[$i],
+          'bundle' => $content_type->type,
+          'label' => $field[$j]['field_name'] . '_fl_inst_label',
+          'description' => $this->randomName() . '_fl_inst_description',
+          'weight' => mt_rand(0, 127),
+          // test_field has no instance settings
+          'widget' => array(
+            'type' => 'test_field_widget',
+            'settings' => array('size' => mt_rand(0, 255))
+          )
+        );      
+        field_create_instance($instances[$entity_types[$i]][$j]);
+      }
+    } 
+    return $instances;
+  }
+  
+  function tagUsers($content_type) {
+    $this->tagUser(
+      $this->unauthorized_user, 
+      $this->fields[0]['field_name'], 
+      $tids = array($this->terms[0][1]->tid)
+    );
+  }
+}
+    
+
+
+class ABTEnviromentTestCase extends ABTWebTestCase {
+  
+  public static function getInfo() {
+    return array(
+      'name' => 'ABT environment test',
+      'description' => 'Test if the environment is setup for the test (terms,fields,users,osv).',
+      'group' => 'Access by Term (ABT)',
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+  }
+
+  function testEnviroment() {
+    $this->envTestVocabularyCreation();
+    $this->envTestTermCreation();
+    $this->envTestContentTypeCreation();
+    $this->envTestFieldCreation();
+    $this->envTestFieldInstanceCreation();
+    $this->envTestUserData();
+  }
+
+  function envTestVocabularyCreation() {
+    for($i = 0; $i < count($this->vocabularies); $i++) {
+      $loaded = taxonomy_vocabulary_load($this->vocabularies[$i]->vid);
+      $this->assertEqual($loaded->name, $this->vocabularies[$i]->name, t("Vocabulary %vid was created.", array('%vid' => $loaded->vid)));
+    }
+  }
+  function envTestTermCreation() {
+    foreach($this->terms as $vid => $terms) {
+      $parent_tid = 0;
+      for($i = 0; $i < count($terms); $i++) {
+        $loaded = taxonomy_term_load($terms[$i]->tid);
+        $this->assertEqual($loaded->name, $terms[$i]->name, t('Taxonomy term @tid was created.', array('@tid' => $loaded->tid.' - '.$loaded->name)));
+        $this->assertEqual($parent_tid, $terms[$i]->parent[0], t('Taxonomy term hierarchy confirmed: @parent -> @child ', array('@parent' => $parent_tid, '@child' => $terms[$i]->tid)));
+        $parent_tid = $loaded->tid;
+      }
+    }
+  }
+  function envTestContentTypeCreation() {
+    $type_exists = db_query('SELECT 1 FROM {node_type} WHERE type = :type', array(':type' => $this->content_type->type))->fetchField();
+    $this->assertTrue($type_exists, 'The new content type has been created in the database: ('.$this->content_type->type.')');
+  }
+  
+  function envTestFieldCreation() {
+    #$this->assertEqual(count($this->fields), 3, 'flds: '.$this->fields[0]['type']);
+    for($i = 0; $i < count($this->fields); $i++) {
+     $loaded = field_info_field($this->fields[$i]['field_name']);
+     $this->assertEqual(
+       $loaded['field_name'].$loaded['type'], 
+       $this->fields[$i]['field_name'].$this->fields[$i]['type'], 
+       t('Field (@fname) was created.', array('@fname' => $loaded['field_name'].', '.$loaded['type']))
+      );
+    }
+  }
+  function envTestFieldInstanceCreation($entity_types = array('node', 'user')) {
+    for($i = 0; $i < count($entity_types); $i++) {
+      for($j = 0; $j < count($this->field_instances[$entity_types[$i]]); $j++) {
+        $field_name = $this->field_instances[$entity_types[$i]][$j]['field_name'];
+        $bundle = $this->field_instances[$entity_types[$i]][$j]['bundle'];
+        $loaded = field_info_instance(
+          $entity_types[$i], 
+          $field_name,
+          $bundle
+        );
+        $this->assertTrue(
+          isset($loaded['id']), 
+          t('Field instance created for field (@instname)', array('@instname' => $field_name))
+        );
+        // Another way to check if field instances are created...
+        // $info = _field_info_collate_fields();
+        // $this->assertTrue(
+        //   isset($info['instances'][$entity_types[$i]][$bundle][$field_name]), 
+        //   t('Field instance created: (@instname)', array('@instname' => $field_name.' - '.$this->field_instances[$entity_types[$i]][$j]['label']))
+        // );
+      }
+    }
+  }  
+  
+  function envTestUserData() {
+    $this->tagUser(
+      $this->unauthorized_user, 
+      $this->fields[0]['field_name'], 
+      $tids = array($this->terms[0][1]->tid)
+    );
+
+
+    $tid = $this->unauthorized_user->{$this->fields[0]['field_name']}['und'][0]['tid'];
+    $term = taxonomy_term_load($tid);
+    $this->assertTrue(
+      isset($term->name), 
+      t('User tagged with term id (@var1)', array('@var1' => $tid.' - '.$term->tid.' - '.$term->name))
+    );
+  }
+}
+
+
+
+
+
+
+

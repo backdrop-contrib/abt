@@ -5,3 +5,4 @@ php = 5.x
 package = Content Access Control
 files[] = abt.module
 files[] = abtutils.inc
+files[] = abt.test
