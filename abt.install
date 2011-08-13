@@ -8,9 +8,7 @@
  * Implements hook_uninstall().
  */
 function abt_uninstall() {
-
-  // TODO
-  // Clean up the node_access table and remove all 'abt' grants.
+  db_drop_table('abt_map');
 }
 
 /**
@@ -19,7 +17,6 @@ function abt_uninstall() {
 function abt_enable() {
   drupal_set_message('Access by Term enabled. Do not forget to <a href="people/permissions">set the permissions</a>.');
 }
-
 
 function abt_schema() {
   $schema['abt_map'] = array(
@@ -53,5 +50,41 @@ function abt_schema() {
       ),
     ),
   );
+  
   return $schema;
+}
+
+function abt_update_7001() {
+  $schema['abt_map'] = array(
+    'description' => 'Holds the list of fieldnames which will control node access.',
+    'fields' => array(
+      'field_name' => array(
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The field name.',
+        'translatable' => FALSE,
+      ),
+      'ctrl_view_access' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Whether this field controls the view access.',
+      ),
+      'ctrl_update_access' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Whether this field controls the update access.',
+      ),
+      'ctrl_delete_access' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Whether this field controls the delete access.',
+      ),
+    ),
+  );
+  db_create_table('abt_map', $schema['abt_map']);
 }
