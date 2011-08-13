@@ -1,52 +1,10 @@
 <?php
 /*
-* Requirements:
-* - abt installed
-* - 3 vocabularies created
-* - insert terms into vocabularies
-* - Create a content type
-* - Create 3 taxonomy reference fields for the user
-* - Create 3 taxonomy reference fields for out content type
-* - Create users: authuser1, authuser2, unauth1, admin
-* 
-* Test cases:
-* - Set "taxonomy reference" field as "access controler"
-* - Unset "taxonomy reference" field as "access controler"
-* - Set "non-taxonomy reference" field as "access controler"
-* 
-* - Access permission scenarios:
-*   # one field controls all
-*   - user tids:2 => node tids:2 (assert:view,update,delete)
-*   - user tids:1 => node tids:2 (assert:view,update,delete)
-*   - user tids:3 => node tids:2 (assert:view,update,delete)
-* 
-*   # one field for each aspect (view,update,delete)
-*   - user tids:1,1,1 => node tids:1,1,1 (assert:view,update,delete)
-*   - user tids:1,1,1 => node tids:2,2,2 (assert:view,update,delete)
-*   - user tids:3,3,3 => node tids:2,2,2 (assert:view,update,delete)
-* 
-*   # one field for each aspect (view,update,delete)
-*   - user tids:1,1,1 => node tids:1,1,1 (assert:view,update,delete)
-*   - user tids:1,1,1 => node tids:2,2,2 (assert:view,update,delete)
-*   - user tids:3,3,3 => node tids:2,2,2 (assert:view,update,delete)
-* 
-* Settings for the taxonomy reference fields.
-* Test view,update,delete access with one field
-* Test view access with three separate fields
+* Test cases for abt.
 */
-// $this->drupalGet($path, $options = array())
-// $this->drupalPost($path, $edit, $submit, array $options = array(), array $headers = array())
-// $this->drupalCreateContentType($settings)
-// $this->clickLink($label, $index = 0)
-// $this->drupalCreateUser($permissions = NULL)
-// $this->drupalLogin($user = NULL)
-// $this->drupalLogout()
-// $this->drupalCreateNode($settings)
 
 class ABTWebTestCase extends DrupalWebTestCase {
-  protected $admin_user;
-  protected $authorized_user;
-  protected $unauthorized_user;
+  protected $user;
   protected $vocabularies;
   protected $terms = array();
   protected $content_type;
@@ -54,31 +12,18 @@ class ABTWebTestCase extends DrupalWebTestCase {
   protected $field_instances = array();
 
   function setUp() {
-    parent::setUp();
-    $this->setUpTaxonomy();
-    $this->setUpContentStructure();
-    $this->setUpUsers();
+    parent::setUp('abt');
   }
   
   /* Partial setup */
-  function setUpTaxonomy($numberOfTerms = 6) {
+  function setUpTaxonomy() {
     $this->vocabularies = $this->createVocabulary();
     $this->terms = $this->populateVocabularies($this->vocabularies);
   }
 
-  function setUpUsers() {
-    $this->admin_user = $this->drupalCreateUser(array('administer permissions', 'access user profiles', 'administer site configuration', 'administer modules', 'administer users'));
-    $this->authorized_user = $this->drupalCreateUser();
-    $this->unauthorized_user = $this->drupalCreateUser();
-    #$this->unauthorized_user->{$this->field_instances['user'][0]['field_name']}['und'][]['tid'] = $this->terms[0]->tid;
-    user_save($this->unauthorized_user);
-    $this->drupalLogin($this->admin_user);
-    $this->drupalLogin($this->authorized_user);
-  }
-
-  function setUpContentStructure() {
+  function setUpContentStructure($field_number = 3) {
     $this->content_type = $this->createContentType();
-    $this->fields = $this->createFields($this->vocabularies);
+    $this->fields = $this->createFields($field_number);
     $this->field_instances = $this->createFieldInstances($this->fields, $this->content_type);
   }
   
@@ -91,7 +36,7 @@ class ABTWebTestCase extends DrupalWebTestCase {
     #$this->unauthorized_user->{$this->field_instances['user'][0]['field_name']}['und'][]['tid'] = $this->terms[0]->tid;
   }
   
-  function createVocabulary($numberOfVocs = 3) {
+  function createVocabulary($numberOfVocs = 1) {
     for($i = 0; $i < $numberOfVocs; $i++) {
       $vocs[$i] = (object) array(
         'name' => $this->randomName(),
@@ -102,8 +47,7 @@ class ABTWebTestCase extends DrupalWebTestCase {
     return $vocs;
   }
 
-  function populateVocabularies($vocs, $numberOfTerms = 6) {
-    $numberOfTerms = ($numberOfTerms <= 0) ? 3 : $numberOfTerms;
+  function populateVocabularies($vocs, $numberOfTerms = 3) {
     $terms = array();
     for($i = 0; $i < count($vocs); $i++) {
       $parent = 0;
@@ -126,9 +70,14 @@ class ABTWebTestCase extends DrupalWebTestCase {
     return $this->drupalCreateContentType();
   }
   
-  function createFields($vocs) {
+  function createFields($number_of_fields = 3) {
     $fields = array();
-    for($i = 0; $i < count($vocs); $i++) {
+    $vocs = isset($this->vocabularies) ? $this->vocabularies : array((object) array('machine_name'=>'no_voc'));
+    $voc_index = 0;
+    for($i = 0; $i < $number_of_fields; $i++) {
+      if($i >= count($vocs)) {
+        $voc_index = 0;
+      }
       $field = array(
         'field_name' => drupal_strtolower($this->randomName() . '_field_name'), 
         'type' => 'taxonomy_term_reference', 
@@ -136,7 +85,7 @@ class ABTWebTestCase extends DrupalWebTestCase {
         'settings' => array(
           'allowed_values' => array(
             array(
-              'vocabulary' => $vocs[$i]->machine_name, 
+              'vocabulary' => $vocs[$voc_index]->machine_name, 
               'parent' => 0,
              ),
            ),
@@ -154,7 +103,7 @@ class ABTWebTestCase extends DrupalWebTestCase {
         $instances[$entity_types[$i]][$j] = array(
           'field_name' => $field[$j]['field_name'],
           'entity_type' => $entity_types[$i],
-          'bundle' => $content_type->type,
+          'bundle' => ($entity_types[$i] == 'user') ? 'user' : $content_type->type,
           'label' => $field[$j]['field_name'] . '_fl_inst_label',
           'description' => $this->randomName() . '_fl_inst_description',
           'weight' => mt_rand(0, 127),
@@ -170,12 +119,17 @@ class ABTWebTestCase extends DrupalWebTestCase {
     return $instances;
   }
   
-  function tagUsers($content_type) {
-    $this->tagUser(
-      $this->unauthorized_user, 
-      $this->fields[0]['field_name'], 
-      $tids = array($this->terms[0][1]->tid)
+  function postFieldSettings($content_type, $field, $v, $u, $d) {
+    $this->drupalPost(
+      'admin/structure/types/manage/'.$content_type.'/fields/'.$field['field_name'], 
+      array(
+        'abt_enable_view_control' => $v,
+        'abt_enable_update_control' => $u,
+        'abt_enable_delete_control' => $d,
+      ), 
+      'Save settings'
     );
+    $this->assertText(t('Saved '.$field['label'].' configuration.'));
   }
 }
     
@@ -193,6 +147,10 @@ class ABTEnviromentTestCase extends ABTWebTestCase {
 
   function setUp() {
     parent::setUp();
+    $this->user = $this->drupalCreateUser(array('assign view access control', 'assign update access control', 'assign delete access control', 'administer content types', 'administer permissions', 'access user profiles', 'administer site configuration', 'administer modules', 'administer users'));
+    $this->drupalLogin($this->user);
+    $this->setUpTaxonomy();
+    $this->setUpContentStructure(5);
   }
 
   function testEnviroment() {
@@ -202,6 +160,7 @@ class ABTEnviromentTestCase extends ABTWebTestCase {
     $this->envTestFieldCreation();
     $this->envTestFieldInstanceCreation();
     $this->envTestUserData();
+    $this->envTestNodeData();
   }
 
   function envTestVocabularyCreation() {
@@ -249,7 +208,7 @@ class ABTEnviromentTestCase extends ABTWebTestCase {
         );
         $this->assertTrue(
           isset($loaded['id']), 
-          t('Field instance created for field (@instname)', array('@instname' => $field_name))
+          t('Field instance created for field (@instname)', array('@instname' => $field_name.' - '.$loaded['entity_type']))
         );
         // Another way to check if field instances are created...
         // $info = _field_info_collate_fields();
@@ -259,28 +218,220 @@ class ABTEnviromentTestCase extends ABTWebTestCase {
         // );
       }
     }
-  }  
-  
+  } 
+
   function envTestUserData() {
+    $usr = user_load($this->user->uid);
     $this->tagUser(
-      $this->unauthorized_user, 
+      $usr, 
       $this->fields[0]['field_name'], 
-      $tids = array($this->terms[0][1]->tid)
+      $tids = array($this->terms[0][1]->tid, $this->terms[0][1]->tid)
     );
-
-
-    $tid = $this->unauthorized_user->{$this->fields[0]['field_name']}['und'][0]['tid'];
+    $usr = user_load($this->user->uid);
+    $tid = $usr->{$this->fields[0]['field_name']}['und'][0]['tid'];
     $term = taxonomy_term_load($tid);
     $this->assertTrue(
       isset($term->name), 
-      t('User tagged with term id (@var1)', array('@var1' => $tid.' - '.$term->tid.' - '.$term->name))
+      t('User tagged with term id (@var1)', array('@var1' => $tid.' - '.$term->tid.' - '.$term->name.' - '.$this->field_instances['user'][0]['field_name']))
+    );
+  }
+
+  function envTestNodeData() {
+    $node = $this->drupalCreateNode(array(
+      'type' => $this->content_type->type,
+    ));
+    $n = node_load($node->nid);
+    $this->assertTrue(
+      isset($n->nid), 
+      'Node created. (Nid:'.$n->nid.')'
+    );
+    
+    $n->{$this->field_instances['node'][0]['field_name']}[$node->language][]['tid'] = $this->terms[0][1]->tid;
+    node_save($n);
+    $saved_tid = $n->{$this->field_instances['node'][0]['field_name']}[$node->language][0]['tid'];
+    $n = node_load($n->nid); // just in case :)
+    $this->assertTrue(
+      (isset($n->nid) && ($this->terms[0][1]->tid == $saved_tid)), 
+      'Term reference added. (Nid:'.$n->nid.' - Tid:'.$saved_tid.')'
     );
   }
 }
 
 
+class ABTPermissionFieldTestCase extends ABTWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'ABT field settings test',
+      'description' => 'Test ABT properties for fields (changing the field settings). If user can assign field as access-controlling.',
+      'group' => 'Access by Term (ABT)',
+    );
+  }
+  
+  function setUp() {
+    parent::setUp();
+    $this->setUpTaxonomy();
+    $this->setUpContentStructure(3);
+  }
+
+  function testEditFieldSettings() {
+    $users = array(
+      array('assign view access control', 'assign update access control', 'assign delete access control', 'administer content types')
+    );
+    $this->user = $this->drupalCreateUser($users[0]);
+    $this->drupalLogin($this->user);
+    $this->runFieldSettingCombos();
+    $this->drupalLogout($this->user);
+  }
+
+  function runFieldSettingCombos() {
+    $combos = array(
+      array('v' => TRUE, 'u' => FALSE, 'd' => FALSE),
+      array('v' => FALSE, 'u' => TRUE, 'd' => FALSE),
+      array('v' => FALSE, 'u' => FALSE, 'd' => TRUE),
+      
+      array('v' => TRUE, 'u' => TRUE, 'd' => FALSE),
+      array('v' => TRUE, 'u' => FALSE, 'd' => TRUE),
+      array('v' => FALSE, 'u' => TRUE, 'd' => TRUE),
+      
+      array('v' => FALSE, 'u' => FALSE, 'd' => FALSE), /* this row should not be saved */
+      array('v' => TRUE, 'u' => TRUE, 'd' => TRUE),
+    );
+    for($j = 0, $i = 0; $i < count($combos); $i++, $j++) {
+      $j = ($j >= count($this->field_instances['node'])) ? 0 : $j; // field counter
+      $v = $combos[$i]['v'];
+      $u = $combos[$i]['u'];
+      $d = $combos[$i]['d'];
+      $this->postFieldSettings($this->content_type->type, $this->field_instances['node'][$j], $v, $u, $d);
+      $expect = (int) !(!$v && !$u && !$d);
+      $query = db_select('abt_map', 'a');
+      $query->fields('a')
+        ->condition('field_name', $this->field_instances['node'][$j]['field_name'],'=')
+        ->condition('ctrl_view_access',   $v, '=')
+        ->condition('ctrl_update_access', $u, '=')
+        ->condition('ctrl_delete_access', $d, '=');
+      $rowCount = $query->execute()->rowCount();
+      
+      $this->assertTrue(
+        ($rowCount == $expect), 
+        t('Field values changed as planned. ('.$v.$u.$d.') = ('.$rowCount.') Row was @not found.', array('@not' => ($expect ? '' : 'not' )))
+      );
+    }
+  }
+}
+
+
+class ABTPermissionGrantsTestCase extends ABTWebTestCase {
+  
+  public static function getInfo() {
+    return array(
+      'name' => 'ABT node access grants test',
+      'description' => 'Test if ABT is restricting/allowing access as designed (takes a few minutes).',
+      'group' => 'Access by Term (ABT)',
+    );
+  }
+  
+  function setUp() {
+    parent::setUp();
+    $this->setUpTaxonomy();
+    $this->setUpContentStructure(5);
+  }
+  
+  function testGrants() {
+    $this->accessGrants(); // authenticated users
+    $this->accessGrants(false); // unauthenticated users
+  }
+  
+  function accessGrants($authenticateUsers = true) {
+
+    $flag_map[$this->fields[0]['field_name']] = array('v'=>1,'u'=>1,'d'=>1);
+    $flag_map[$this->fields[1]['field_name']] = array('v'=>1,'u'=>0,'d'=>0);
+    $flag_map[$this->fields[2]['field_name']] = array('v'=>0,'u'=>1,'d'=>0);
+    $flag_map[$this->fields[3]['field_name']] = array('v'=>0,'u'=>0,'d'=>1);
+    $flag_map[$this->fields[4]['field_name']] = array('v'=>1,'u'=>0,'d'=>1);
 
 
 
+    for($x = 0; $x < count($this->fields); $x++) {
+      $field_name = $this->fields[$x]['field_name'];
+      $v = $flag_map[$field_name]['v'];
+      $u = $flag_map[$field_name]['u'];
+      $d = $flag_map[$field_name]['d'];
+              
+      // loop trough terms and create users
+      $user_map = array();
+      $node_map = array();
+      $expect_map = array();
+      for($i = 0; $i < count($this->terms); $i++) {
+      
+        db_delete('abt_map')->execute(); // clean slate (for good measure)
+        db_insert('abt_map')
+          ->fields(array(
+            'field_name' => $field_name,  
+            'ctrl_view_access' => $v,
+            'ctrl_update_access' => $u,
+            'ctrl_delete_access' => $d,
+          ))
+          ->execute();
+        node_access_rebuild();
 
+        $term_list_ordered = $this->terms[$i];
+        // Make sure we have some nodes and users without access flags.
+        array_push($term_list_ordered, (object) array('tid' => FALSE));
+        array_unshift($term_list_ordered, (object) array('tid' => FALSE));
+        $term_list_reversed = array_reverse($term_list_ordered);
+
+        for($j = 0; $j < count($term_list_ordered); $j++) {
+          $user_map[$i][$j] = $this->drupalCreateUser();
+          $node_map[$i][$j] = $this->drupalCreateNode(array('type' => $this->content_type->type));
+        
+          $usr = user_load($user_map[$i][$j]->uid);
+          $nde = node_load($node_map[$i][$j]->nid);
+          ($term_list_ordered[$j]->tid !== FALSE) && ($nde->{$field_name}['und'][0]['tid'] = $term_list_ordered[$j]->tid);
+          ($term_list_reversed[$j]->tid !== FALSE) && ($usr->{$field_name}['und'][0]['tid'] = $term_list_reversed[$j]->tid);  
+          user_save($usr);
+          node_save($nde);
+        
+          /* 
+          * Blocks bellow basicly say:
+          * if either node or user lacks access flag = expect "access denied". 
+          */
+          // User has no access tags && Node has access tags
+          if($term_list_reversed[$j]->tid === FALSE && $term_list_ordered[$j]->tid !== FALSE) {
+            $expect_access[$i][$j] = FALSE;
+        
+          // User has no access tags && Node has no access tags
+          } elseif($term_list_reversed[$j]->tid === FALSE && $term_list_ordered[$j]->tid === FALSE) {
+            $expect_access[$i][$j] = FALSE;
+        
+          // User has access tags && Node has no access tags
+          } elseif($term_list_reversed[$j]->tid !== FALSE && $term_list_ordered[$j]->tid === FALSE) {
+            $expect_access[$i][$j] = FALSE;
+          } else {
+            $expect_access[$i][$j] = ($term_list_reversed[$j]->tid <= $term_list_ordered[$j]->tid);
+          }
+          $authenticateUsers && $this->drupalLogin($user_map[$i][$j]);
+
+          $this->drupalGet('node/'.$node_map[$i][$j]->nid);
+          $text_to_expect = $authenticateUsers && $v==1 && $expect_access[$i][$j] ? $nde->title : t('Access denied');
+          $msg = $authenticateUsers && $v==1 && $expect_access[$i][$j] ? t('View: access allowed') : t('View: access denied');
+          $this->assertText($text_to_expect, $msg.' ('.$v.$u.$d.') user-tid:'.($term_list_reversed[$j]->tid === FALSE ? 'none' : $term_list_reversed[$j]->tid ).' <= node-tid:'.($term_list_ordered[$j]->tid === FALSE ? 'none' : $term_list_ordered[$j]->tid));
+
+          $this->drupalGet('node/'.$node_map[$i][$j]->nid.'/edit');
+          $text_to_expect = $authenticateUsers && $u==1 && $expect_access[$i][$j] ? $nde->title : t('Access denied');
+          $msg = $authenticateUsers && $u==1 && $expect_access[$i][$j] ? t('Update: access allowed') : t('Update: access denied');
+          $this->assertText($text_to_expect, $msg.' ('.$v.$u.$d.') user-tid:'.($term_list_reversed[$j]->tid === FALSE ? 'none' : $term_list_reversed[$j]->tid ).' <= node-tid:'.($term_list_ordered[$j]->tid === FALSE ? 'none' : $term_list_ordered[$j]->tid));
+
+          $this->drupalGet('node/'.$node_map[$i][$j]->nid.'/delete');
+          $text_to_expect = $authenticateUsers && $d==1 && $expect_access[$i][$j] ? $nde->title : t('Access denied');
+          $msg = $authenticateUsers && $d==1 && $expect_access[$i][$j] ? t('Delete: access allowed') : t('Delete: access denied');
+          $this->assertText($text_to_expect, $msg.' ('.$v.$u.$d.') user-tid:'.($term_list_reversed[$j]->tid === FALSE ? 'none' : $term_list_reversed[$j]->tid ).' <= node-tid:'.($term_list_ordered[$j]->tid === FALSE ? 'none' : $term_list_ordered[$j]->tid));
+
+          $authenticateUsers && $this->drupalLogout($user_map[$i][$j]);
+        
+        }
+      }
+    }
+  }
+}
 
