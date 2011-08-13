@@ -6,3 +6,6 @@ package = Content Access Control
 files[] = abt.module
 files[] = abtutils.inc
 files[] = abt.test
+dependencies[] = taxonomy
+dependencies[] = node
+dependencies[] = field
