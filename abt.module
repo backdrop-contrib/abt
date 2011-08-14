@@ -61,6 +61,10 @@ function abt_node_access_records($node) {
     
     $used_tids = array(); 
     for($i = 0; $i < count($tids); $i++) {
+      // node_access table does not allow duplicate nid-gid-realm combo (in our case it's nid-tid-fieldname).
+      // Duplicate terms will probably never happen in normal usage but devel-generate module does this 
+      // when field cardinality is greater then 1 (there is a debate on wheather this is a bug or not).
+      // Anyway, we adress it here and prevent duplicate terms trigger writing to the node_access table.
       if(!in_array($tids[$i]['tid'], $used_tids)) {
         $used_tids[] = $tids[$i]['tid'];
         $grants[] = AbtUtils::grantConstruct(
