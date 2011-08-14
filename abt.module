@@ -57,15 +57,19 @@ function abt_node_access_records($node) {
     $field_data =& $node->{$realm['field_name']}[$node->language];
     $tids = (!empty($field_data)) ? $field_data : array(array('tid' => 0));
     
+    $used_tids = array(); 
     for($i = 0; $i < count($tids); $i++) {
-      $grants[] = AbtUtils::grantConstruct(
-        $node->nid, 
-        'abt_'.$realm['field_name'], 
-        $tids[$i]['tid'], 
-        $realm['ctrl_view_access'], 
-        $realm['ctrl_update_access'], 
-        $realm['ctrl_delete_access']
-      );
+      if(!in_array($tids[$i]['tid'], $used_tids)) {
+        $used_tids[] = $tids[$i]['tid'];
+        $grants[] = AbtUtils::grantConstruct(
+          $node->nid, 
+          'abt_'.$realm['field_name'], 
+          $tids[$i]['tid'], 
+          $realm['ctrl_view_access'], 
+          $realm['ctrl_update_access'], 
+          $realm['ctrl_delete_access']
+        );
+      }
     }
   }
   return $grants;
