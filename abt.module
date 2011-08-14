@@ -30,10 +30,12 @@ function abt_node_grants($account, $op) {
       // Get the tids from users field (realm).
       $terms = (!empty($usr->{$r['field_name']}[$lang])) ? $usr->{$r['field_name']}[$lang] : array(); 
 
-      isset($r['ctrl_'.$op.'_access']) /* Check if this operation is supported by the realm */
+      /* Is this operation supported by the realm */
+      isset($r['ctrl_'.$op.'_access']) 
+        /* Is this realm controlling the requested operation */
         && ($r['ctrl_'.$op.'_access'] == 1) 
           /* Get the children of terms and assign them all to the current realm. */
-          && ($grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms)); 
+          && ($grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms));
     }
 
   }
