@@ -185,7 +185,7 @@ function abt_form_field_ui_field_edit_form_submit($form_data) {
   } 
   /* For a feature comming up. */
   // createFieldInstance($field_name, $field_title, $entity_type, $bundle)
-  node_access_rebuild();
+  node_access_needs_rebuild();
 }
 
 /**
