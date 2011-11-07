@@ -176,7 +176,7 @@ function abt_form_node_form_alter(&$form, &$form_state, $form_id) {
       $delete = ($realm['ctrl_delete_access'] == 1) ? t('delete').' ' : '';
       
       $msg = str_replace(' ', ', ', trim($view.$update.$delete));
-      $msg = (!empty($msg)) ? ' <em>(Access control enabled for: '.$msg.')</em>' : '';
+      $msg = (!empty($msg)) ? ' <em>'.t('(Access control enabled for: @msg)', array('@msg' => $msg)).'</em>' : '';
       
       $field[LANGUAGE_NONE]['#title'] = $field[LANGUAGE_NONE]['#title'].$msg;
     }
