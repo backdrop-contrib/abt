@@ -7,81 +7,9 @@
 /**
  * Static class containing utility methods for the ABT module.
  * 
- * This class is static and as such, should not be instantiated.
  */
 class AbtUtils {
 
-  /** 
-   * Method for creating field instances.
-   * 
-   * @param string $field_name
-   *    Field name to use for instantiating.
-   * @param string $field_title
-   *    Name for the the new field.
-   *
-   * @return Array on success, FALSE on failure.
-   *    Returns the newly created instance or FALSE if 
-   *    the instance could not be created.
-   */
-  public static function createFieldInstance($field_name, $field_title, $entity_type, $bundle) {
-    if (!$instance = field_info_instance($entity_type, $field_name, $bundle)) {
-      $instance = array(
-        'field_name' => $field_name,
-        'entity_type' => $entity_type,
-        'label' => $field_title,
-        'bundle' => $bundle,
-      );
-      try {
-        $instance = field_create_instance($instance);
-      } catch (FieldException $ex) {
-        drupal_set_message(t('ABT: Field instance could not be created. It might exist already? %msg', 
-          array('%msg' => $ex->getMessage())));
-        return FALSE;
-      }
-    }
-    return $instance;
-  }
-
-  /** 
-   * Method for deleting field instances.
-   * 
-   * @param string $field_name
-   *    Fieldname of the instance you wish to delete.
-   * @param boolean $cleanup
-   *    (optional) Set to TRUE if you want to remove 
-   *    all data associated with this instance.
-   * @param string $type
-   *    (optional) Type of the instance you wish to delete.
-   */    
-  public static function deleteFieldInstance($field_name, $cleanup = TRUE, $type = 'node') {
-    if ($instance = field_info_instance($type, $field_name, 'abt')) {
-      field_delete_instance($instance, $cleanup);
-    }
-  }
-
-  /** 
-   * Method for fetching taxonomy term data for a group of terms.
-   * 
-   * @param Array $term_array
-   *    Array of terms. Each term must have the index "tid"
-   *    where it stores the id of term you wish to fetch.
-   *
-   * @return Array
-   *    On success returns array of terms with all their data.
-   *    On failure returns an empty array.
-   *    
-   */    
-  public static function getTermData($term_array) {
-    $out = array();
-    if (empty($term_array) || !is_array($term_array)) {
-      return $out;
-    }
-    foreach ($term_array as $term) {
-      $out[$term['tid']] = taxonomy_term_load($term['tid']);
-    } 
-    return $out;
-  }
-  
   /** 
    * Method for fetching all of the children for a taxonomy 
    * term or an array of taxonomy terms.

@@ -5,12 +5,6 @@
  */
 
 /**
- * TODO: Register permissions: "assign vocabulary as access voc" (hook)
- * TODO: Use Utils::createFieldInstance() to append the field to node_types,users,osv...
- */
-
-
-/**
  * Implements hook_node_grants().
  * 
  * Every time a node (or a part of a node) is subject
@@ -139,26 +133,6 @@ function abt_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id)
       '#default_value' => (isset($current['ctrl_delete_access']) ? $current['ctrl_delete_access'] : 0),
     ); 
   }
-  /* For a feature comming up */
-  // $form['abt']['assistent'] = array(
-  //     '#type' => 'fieldset', 
-  //     '#title' => t('Assistent'), 
-  //     //'#weight' => -1, 
-  //     '#collapsible' => TRUE, 
-  //     '#collapsed' => FALSE,
-  //     '#description' => '<p>'.t('Create field instances.').'</p>',
-  // );
-  // 
-  // $form['abt']['assistent']['auto_create_instances'] = array(
-  //   '#type' => 'checkbox',
-  //   '#title' => t('Control "delete" access with this field.'),
-  //   '#description' => t('Set this checkbox to create field instances on the fly'),
-  //   '#default_value' => (isset($current['ctrl_delete_access']) ? $current['ctrl_delete_access'] : 0),
-  // ); 
-  // $form['#instance']['entity_type'];
-  // $form['#field']['bundles']['node']
-  // $form['#field']['bundles']['user']
-  
   $form['#submit'][] = 'abt_form_field_ui_field_edit_form_submit';
 }
 
@@ -183,8 +157,6 @@ function abt_form_field_ui_field_edit_form_submit($form_data) {
       ))
       ->execute();
   } 
-  /* For a feature comming up. */
-  // createFieldInstance($field_name, $field_title, $entity_type, $bundle)
   node_access_needs_rebuild();
 }
 
