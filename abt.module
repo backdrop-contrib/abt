@@ -4,6 +4,10 @@
  * Module for controling access by using user->term<-node relationship.
  */
 
+define('ABT_NO_CONTROL', 0);
+define('ABT_CONTROL_DEFAULT_RESTRICT', 1);
+define('ABT_CONTROL_DEFAULT_ALLOW', 2);
+
 /**
  * Implements hook_node_grants().
  * 
@@ -17,8 +21,6 @@ function abt_node_grants($account, $op) {
   $usr = user_load($account->uid);
   $access_map = db_select('abt_map', 'a')->fields('a')->execute();
   while($r = $access_map->fetchAssoc()) {
-    // This zero makes sure that every user has update access to unrestricted nodes.
-    $grants['abt_'.$r['field_name']] = array(0);
     if(isset($usr->{$r['field_name']})) {  // Current realm is applicable on this user.
       // Get the tids from users field (realm).
       $terms = (!empty($usr->{$r['field_name']}[LANGUAGE_NONE])) ? 
@@ -27,11 +29,15 @@ function abt_node_grants($account, $op) {
       /* Is this operation supported by the realm */
       isset($r['ctrl_'.$op.'_access']) 
         /* Is this realm controlling the requested operation */
-        && ($r['ctrl_'.$op.'_access'] == 1) 
+        && ($r['ctrl_'.$op.'_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) 
           /* Get the children of terms and assign them all to the current realm. */
           && ($grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms));
     }
 
+    if($r['ctrl_'.$op.'_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
+      // This zero makes sure that every user has update access to unrestricted nodes.
+      $grants['abt_'.$r['field_name']][0] = 0;
+    }    
   }
   return $grants;
 }
@@ -65,9 +71,9 @@ function abt_node_access_records($node) {
           $node->nid, 
           'abt_'.$realm['field_name'], 
           $tids[$i]['tid'], 
-          $realm['ctrl_view_access'], 
-          $realm['ctrl_update_access'], 
-          $realm['ctrl_delete_access']
+          ($realm['ctrl_view_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1,
+          ($realm['ctrl_update_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1,
+          ($realm['ctrl_delete_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1
         );
       }
     }
@@ -108,42 +114,36 @@ function abt_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id)
         '<p>'.t('<em>If you check any or all of these, access for this content type will be controlled by ABT and unauthorized users will have no access to this content type. However, if none are checked, this remains a regular field. Let\'s say you check only "delete" flag. This would mean you want to control the "delete" access with the field. Other two unchecked boxes will result in "access denied".</em>').'</p>'
         .'<p>'.t('<em>Note: by saving these settings, your content permissions will get rebuilt. This is a must if your changes are to take place.</em>').'</p>'
   );
-  
-  if(user_access('assign view access control')) {
-    $form['abt']['abt_enable_view_control'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Control "view" access with this field.'),
-      '#description' => t('Set this checkbox to control the "<strong>view</strong>" access for the content type <strong>@ct</strong>.', array('@ct' => $form['#instance']['bundle'])),
-      '#default_value' => (isset($current['ctrl_view_access']) ? $current['ctrl_view_access'] : 0),
-    );
-  }
-  if(user_access('assign update access control')) {
-    $form['abt']['abt_enable_update_control'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Control "update" access with this field.'),
-      '#description' => t('Set this checkbox to control the "<strong>update</strong>" access for the content type <strong>@ct</strong>.', array('@ct' => $form['#instance']['bundle'])),
-      '#default_value' => (isset($current['ctrl_update_access']) ? $current['ctrl_update_access'] : 0),
-    );
-  }
-  if(user_access('assign delete access control')) {  
-    $form['abt']['abt_enable_delete_control'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Control "delete" access with this field.'),
-      '#description' => t('Set this checkbox to control the "<strong>delete</strong>" access for the content type <strong>@ct</strong>.', array('@ct' => $form['#instance']['bundle'])),
-      '#default_value' => (isset($current['ctrl_delete_access']) ? $current['ctrl_delete_access'] : 0),
-    ); 
+  foreach(array('view', 'update', 'delete') as $op) {
+    if(user_access('assign '.$op.' access control')) {
+      $form['abt']['abt_enable_'.$op.'_control'] = array(
+        '#type' => 'select',
+        '#title' => t('Control "@op" access with this field.', array('@op' => $op)),
+        '#options' => array(
+          ABT_NO_CONTROL => t('No'),
+          ABT_CONTROL_DEFAULT_RESTRICT => t('Yes, restrict access by default.'),
+          ABT_CONTROL_DEFAULT_ALLOW => t('Yes, allow access by default.')
+        ),
+        '#description' => t('Set this to control the "<strong>@op</strong>" access for the content type <strong>@ct</strong>.', array('@ct' => $form['#instance']['bundle'], '@op' => $op)),
+        '#default_value' => (isset($current['ctrl_'.$op.'_access']) ? $current['ctrl_'.$op.'_access'] : 0)
+      );
+    }
   }
   $form['#submit'][] = 'abt_form_field_ui_field_edit_form_submit';
 }
 
 function abt_form_field_ui_field_edit_form_submit($form_data) {
-  if(!isset($form_data['abt']['abt_enable_view_control']) && !isset($form_data['abt']['abt_enable_view_control']) && $form_data['abt']['abt_enable_delete_control']) {
+  if(
+    !isset($form_data['abt']['abt_enable_view_control']) && 
+    !isset($form_data['abt']['abt_enable_view_control']) && 
+    !isset($form_data['abt']['abt_enable_delete_control']) 
+  ) {
     return;
   }
   $field_name = $form_data['#field']['field_name'];
-  $ctrl_view_access = user_access('assign view access control') ? (int) $form_data['abt']['abt_enable_view_control']['#checked'] : 0;
-  $ctrl_update_access = user_access('assign update access control') ? (int) $form_data['abt']['abt_enable_update_control']['#checked'] : 0;
-  $ctrl_delete_access = user_access('assign delete access control') ? (int) $form_data['abt']['abt_enable_delete_control']['#checked'] : 0;
+  $ctrl_view_access = user_access('assign view access control') ? (int) $form_data['abt']['abt_enable_view_control']['#value'] : 0;
+  $ctrl_update_access = user_access('assign update access control') ? (int) $form_data['abt']['abt_enable_update_control']['#value'] : 0;
+  $ctrl_delete_access = user_access('assign delete access control') ? (int) $form_data['abt']['abt_enable_delete_control']['#value'] : 0;
   
   db_delete('abt_map')->condition('field_name', $field_name)->execute();
   
@@ -164,7 +164,7 @@ function abt_form_field_ui_field_edit_form_submit($form_data) {
  * Implements hook_form_BASE_FORM_ID_alter().
  * 
  * Here we tell users if a field is beeing used for access control. 
- * Even which ascpect of access control the field is defining (view,update,delete).
+ * Even which aspect of access control the field is defining (view,update,delete).
  */
 function abt_form_node_form_alter(&$form, &$form_state, $form_id) {
   $access_map = db_select('abt_map', 'a')->fields('a')->execute();
