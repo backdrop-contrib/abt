@@ -123,9 +123,9 @@ class ABTWebTestCase extends DrupalWebTestCase {
     $this->drupalPost(
       'admin/structure/types/manage/'.$content_type.'/fields/'.$field['field_name'], 
       array(
-        'abt_enable_view_control' => $v,
-        'abt_enable_update_control' => $u,
-        'abt_enable_delete_control' => $d,
+        'abt_enable_view_control' => (int) $v,
+        'abt_enable_update_control' => (int) $u,
+        'abt_enable_delete_control' => (int) $d,
       ), 
       'Save settings'
     );
@@ -286,16 +286,16 @@ class ABTPermissionFieldTestCase extends ABTWebTestCase {
 
   function runFieldSettingCombos() {
     $combos = array(
-      array('v' => TRUE, 'u' => FALSE, 'd' => FALSE),
-      array('v' => FALSE, 'u' => TRUE, 'd' => FALSE),
-      array('v' => FALSE, 'u' => FALSE, 'd' => TRUE),
+      array('v' => ABT_CONTROL_DEFAULT_RESTRICT, 'u' => ABT_NO_CONTROL, 'd' => ABT_NO_CONTROL),
+      array('v' => ABT_NO_CONTROL, 'u' => ABT_CONTROL_DEFAULT_RESTRICT, 'd' => ABT_NO_CONTROL),
+      array('v' => ABT_NO_CONTROL, 'u' => ABT_NO_CONTROL, 'd' => ABT_CONTROL_DEFAULT_RESTRICT),
       
-      array('v' => TRUE, 'u' => TRUE, 'd' => FALSE),
-      array('v' => TRUE, 'u' => FALSE, 'd' => TRUE),
-      array('v' => FALSE, 'u' => TRUE, 'd' => TRUE),
+      array('v' => ABT_CONTROL_DEFAULT_RESTRICT, 'u' => ABT_CONTROL_DEFAULT_RESTRICT, 'd' => ABT_NO_CONTROL),
+      array('v' => ABT_CONTROL_DEFAULT_RESTRICT, 'u' => ABT_NO_CONTROL, 'd' => ABT_CONTROL_DEFAULT_RESTRICT),
+      array('v' => ABT_NO_CONTROL, 'u' => ABT_CONTROL_DEFAULT_RESTRICT, 'd' => ABT_CONTROL_DEFAULT_RESTRICT),
       
-      array('v' => FALSE, 'u' => FALSE, 'd' => FALSE), /* this row should not be saved */
-      array('v' => TRUE, 'u' => TRUE, 'd' => TRUE),
+      array('v' => ABT_NO_CONTROL, 'u' => ABT_NO_CONTROL, 'd' => ABT_NO_CONTROL), /* this row should not be saved */
+      array('v' => ABT_CONTROL_DEFAULT_RESTRICT, 'u' => ABT_CONTROL_DEFAULT_RESTRICT, 'd' => ABT_CONTROL_DEFAULT_RESTRICT),
     );
     for($j = 0, $i = 0; $i < count($combos); $i++, $j++) {
       $j = ($j >= count($this->field_instances['node'])) ? 0 : $j; // field counter
