@@ -28,11 +28,18 @@ class AbtUtils {
     if (empty($terms) || !is_array($terms)) {
       return $out;
     }
+
     $first_term_data = taxonomy_term_load($terms[0]['tid']);
-    for($i = 0; $i < count($terms); $i++) {
-    #foreach ($terms as $tkey => $term) {
-      $out[$terms[$i]['tid']] = $terms[$i]['tid'];
-      $children = taxonomy_get_tree($first_term_data->vid, $terms[$i]['tid']);
+    if(property_exists($first_term_data,'vid')) {
+      $vid = intval($first_term_data->vid);
+    } else {
+      return $out;
+    }
+    unset($first_term_data);
+
+    foreach ($terms as $tkey => $term) {
+      $out[$term['tid']] = $term['tid'];
+      $children = taxonomy_get_tree($vid, $term['tid']);
       foreach ($children as $ckey => $child) {
         $out[$child->tid] = $child->tid;
       }

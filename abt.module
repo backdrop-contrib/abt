@@ -21,17 +21,14 @@ function abt_node_grants($account, $op) {
   $usr = user_load($account->uid);
   $access_map = db_select('abt_map', 'a')->fields('a')->execute();
   while($r = $access_map->fetchAssoc()) {
-    if(isset($usr->{$r['field_name']})) {  // Current realm is applicable on this user.
+    if(property_exists($usr,$r['field_name']) === TRUE) {  // Current realm is applicable on this user.
       // Get the tids from users field (realm).
-      $terms = (!empty($usr->{$r['field_name']}[LANGUAGE_NONE])) ? 
-        $usr->{$r['field_name']}[LANGUAGE_NONE] : array(); 
-
-      /* Is this operation supported by the realm */
-      isset($r['ctrl_'.$op.'_access']) 
-        /* Is this realm controlling the requested operation */
-        && ($r['ctrl_'.$op.'_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) 
+      $terms = field_get_items('user', $usr, $r['field_name']);
+      /* Is this realm controlling the requested operation */
+      if(array_key_exists('ctrl_'.$op.'_access',$r) && $r['ctrl_'.$op.'_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) {
           /* Get the children of terms and assign them all to the current realm. */
-          && ($grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms));
+          $grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms);
+      }
     }
 
     if($r['ctrl_'.$op.'_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
@@ -54,9 +51,9 @@ function abt_node_access_records($node) {
   $access_map = db_select('abt_map', 'a')->fields('a')->execute();
   
   while($realm = $access_map->fetchAssoc()) {
-    if(!isset($node->{$realm['field_name']})) { continue; }
-    
-    $field_data =& $node->{$realm['field_name']}[LANGUAGE_NONE];
+    if(!property_exists($node,$realm['field_name'])) { continue; }
+
+    $field_data = field_get_items('node', $node, $realm['field_name']);
     $tids = (!empty($field_data)) ? $field_data : array(array('tid' => 0));
     
     $used_tids = array(); 
@@ -178,7 +175,7 @@ function abt_form_node_form_alter(&$form, &$form_state, $form_id) {
       $msg = str_replace(' ', ', ', trim($view.$update.$delete));
       $msg = (!empty($msg)) ? ' <em>'.t('(Access control enabled for: @msg)', array('@msg' => $msg)).'</em>' : '';
       
-      $field[LANGUAGE_NONE]['#title'] = $field[LANGUAGE_NONE]['#title'].$msg;
+      $field[$field['#language']]['#title'] = $field[$field['#language']]['#title'].$msg;
     }
   }
 }
