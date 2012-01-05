@@ -161,15 +161,17 @@ function abt_form_field_ui_field_edit_form_submit($form_data) {
  * 
  * Here we tell users if a field is beeing used for access control. 
  * Even which aspect of access control the field is defining (view,update,delete).
+ * 
+ * Also prevents users from editing abt tags if they don't have apropriate permissions.
  */
 function abt_form_node_form_alter(&$form, &$form_state, $form_id) {
   $access_map = db_select('abt_map', 'a')->fields('a')->execute();
   while($realm = $access_map->fetchAssoc()) {
     if(isset($form[$realm['field_name']])) {
       $field =& $form[$realm['field_name']];
-      $view = ($realm['ctrl_view_access'] == 1) ? t('view').' ' : '';
-      $update = ($realm['ctrl_update_access'] == 1) ? t('update').' ' : '';
-      $delete = ($realm['ctrl_delete_access'] == 1) ? t('delete').' ' : '';
+      $view = ($realm['ctrl_view_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('view').' ' : '';
+      $update = ($realm['ctrl_update_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('update').' ' : '';
+      $delete = ($realm['ctrl_delete_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('delete').' ' : '';
       
       $msg = str_replace(' ', ', ', trim($view.$update.$delete));
       $msg = (!empty($msg)) ? ' <em>'.t('(Access control enabled for: @msg)', array('@msg' => $msg)).'</em>' : '';
@@ -178,6 +180,7 @@ function abt_form_node_form_alter(&$form, &$form_state, $form_id) {
     }
   }
   
+  // Remove the abt field if needed.
   if(!user_access('allow edit abt field content in node')) {
     $form = abt_remove_fields($form);
   }
