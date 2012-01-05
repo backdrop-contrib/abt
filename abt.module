@@ -118,8 +118,8 @@ function abt_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id)
         '#title' => t('Control "@op" access with this field.', array('@op' => $op)),
         '#options' => array(
           ABT_NO_CONTROL => t('No'),
-          ABT_CONTROL_DEFAULT_RESTRICT => t('Yes, restrict access by default.'),
-          ABT_CONTROL_DEFAULT_ALLOW => t('Yes, allow access by default.')
+          ABT_CONTROL_DEFAULT_RESTRICT => t('Yes, restrict access even if node is not tagged.'),
+          ABT_CONTROL_DEFAULT_ALLOW => t('Yes, but allow access if node is not tagged.')
         ),
         '#description' => t('Set this to control the "<strong>@op</strong>" access for the content type <strong>@ct</strong>.', array('@ct' => $form['#instance']['bundle'], '@op' => $op)),
         '#default_value' => (isset($current['ctrl_'.$op.'_access']) ? $current['ctrl_'.$op.'_access'] : 0)
