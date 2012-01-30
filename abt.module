@@ -141,19 +141,31 @@ function abt_form_field_ui_field_edit_form_submit($form_data) {
   $ctrl_update_access = user_access('assign update access control') ? (int) $form_data['abt']['abt_enable_update_control']['#value'] : 0;
   $ctrl_delete_access = user_access('assign delete access control') ? (int) $form_data['abt']['abt_enable_delete_control']['#value'] : 0;
   
-  db_delete('abt_map')->condition('field_name', $field_name)->execute();
+  $changes = db_select('abt_map', 'a')
+    ->fields('a')
+    ->condition('field_name', $field_name)
+    ->condition('ctrl_view_access', $ctrl_view_access)
+    ->condition('ctrl_update_access', $ctrl_update_access)
+    ->condition('ctrl_delete_access', $ctrl_delete_access)
+    ->execute()
+    ->rowCount();
+
+  if($changes === 0) {
+    // Changes detected
+    db_delete('abt_map')->condition('field_name', $field_name)->execute();
+    if(($ctrl_view_access + $ctrl_update_access + $ctrl_delete_access) > 0) {
+      db_insert('abt_map')
+        ->fields(array(
+          'field_name' => $field_name,  
+          'ctrl_view_access' => $ctrl_view_access,
+          'ctrl_update_access' => $ctrl_update_access,
+          'ctrl_delete_access' => $ctrl_delete_access,
+        ))
+        ->execute();
+    } 
+    node_access_needs_rebuild(TRUE);
+  }
   
-  if($ctrl_view_access + $ctrl_update_access + $ctrl_delete_access > 0) {
-    db_insert('abt_map')
-      ->fields(array(
-        'field_name' => $field_name,  
-        'ctrl_view_access' => $ctrl_view_access,
-        'ctrl_update_access' => $ctrl_update_access,
-        'ctrl_delete_access' => $ctrl_delete_access,
-      ))
-      ->execute();
-  } 
-  node_access_needs_rebuild(TRUE);
 }
 
 /**
