@@ -107,8 +107,8 @@ function abt_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id)
       '#collapsed' => FALSE,
       '#description' => ($no_perms) ? 
         '<p>'.t('Sorry but you have no permission to assign access control to fields. Talk to your administrator.').'</p>' : 
-        '<p>'.t('<em>If you check any or all of these, access for this content type will be controlled by ABT and unauthorized users will have no access to this content type. However, if none are checked, this remains a regular field. Let\'s say you check only "delete" flag. This would mean you want to control the "delete" access with the field. Other two unchecked boxes will result in "access denied".</em>').'</p>'
-        .'<p>'.t('<em>Note: by saving these settings, your content permissions will get rebuilt. This is a must if your changes are to take place.</em>').'</p>'
+        '<p>'.t('<em>If you check one of below fields, the specified access for this content type will be controlled by ABT and unauthorized users will have no access to this content type. However, if none are checked, this remains a regular field. Let\'s say you check only "delete" flag. This would mean you want to control the "delete" access with the field. Other two unchecked boxes will result in default access settings.</em>').'</p>'
+        .'<p>'.t('<em>Note: by changing these settings, you will need to rebuild your content permissions.</em>').'</p>'
   );
   foreach(array('view', 'update', 'delete') as $op) {
     if(user_access('assign '.$op.' access control')) {
