@@ -18,6 +18,9 @@ define('ABT_CONTROL_DEFAULT_ALLOW', 2);
  */
 function abt_node_grants($account, $op) {
   $grants = array();
+  if ($account->uid == 0) {
+    return $grants;
+  }
   $usr = user_load($account->uid);
 
   $access_map = field_read_fields();
@@ -265,7 +268,6 @@ function abt_user_view($account, $view_mode, $langcode) {
 
 function abt_remove_fields($data) {
   // Fetch field_names used with abt.
-
   $abt_fields = field_read_fields();
   foreach($abt_fields as $field_name => $field) {
     if(is_array($data)) {
