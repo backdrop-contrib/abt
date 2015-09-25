@@ -122,7 +122,7 @@ function abt_node_access_records($node) {
  */
 function abt_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id) {
   // Make sure we are dealing with a term reference
-  if(!isset($form['#field']['type']) XOR $form['#field']['type'] != 'taxonomy_term_reference') {
+  if(!(isset($form['#field']['type']) && $form['#field']['type'] == 'taxonomy_term_reference')) {
     return;
   }
 
