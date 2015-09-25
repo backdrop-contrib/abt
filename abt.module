@@ -20,16 +20,16 @@ function abt_node_grants($account, $op) {
   $grants = array();
   $usr = user_load($account->uid);
 
-  $access_map = db_select('abt_map', 'a')->fields('a')->execute();
+  $access_map = field_read_fields();
 
-  while($r = $access_map->fetchAssoc()) {
-    if(property_exists($usr,$r['field_name']) === TRUE) {  // Current realm is applicable on this user.
+  foreach ($access_map as $field_name => $r) {
+    if(property_exists($usr,$field_name) === TRUE) {  // Current realm is applicable on this user.
       // Get the tids from users field (realm).
-      $terms = field_get_items('user', $usr, $r['field_name']);
+      $terms = field_get_items('user', $usr, $field_name);
       /* Is this realm controlling the requested operation */
-      if(array_key_exists('ctrl_'.$op.'_access',$r) && $r['ctrl_'.$op.'_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) {
+      if(isset($r['settings']['abt_map']) && array_key_exists('ctrl_'.$op.'_access',$r['settings']['abt_map']) && $r['settings']['abt_map']['ctrl_'.$op.'_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) {
           /* Get the children of terms and assign them all to the current realm. */
-          $grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms);
+          $grants['abt_'.$field_name] = AbtUtils::taxonomyGetChildrenAll($terms);
       }
     }
 
@@ -66,9 +66,9 @@ function abt_node_grants($account, $op) {
       }
     }
 
-    if($r['ctrl_'.$op.'_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
+    if(isset($r['settings']['abt_map']) && $r['settings']['abt_map']['ctrl_'.$op.'_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
       // This zero makes sure that every user has update access to unrestricted nodes.
-      $grants['abt_'.$r['field_name']][0] = 0;
+      $grants['abt_'.$field_name][0] = 0;
     }
   }
 
@@ -84,11 +84,11 @@ function abt_node_grants($account, $op) {
  */
 function abt_node_access_records($node) {
   $tids = $grants = array();
-  $access_map = db_select('abt_map', 'a')->fields('a')->execute();
-  while($realm = $access_map->fetchAssoc()) {
-    if(!property_exists($node,$realm['field_name'])) { continue; }
+  $access_map = field_read_fields();
+  foreach ($access_map as $field_name => $realm) {
+    if(!property_exists($node,$field_name)) { continue; }
 
-    $field_data = field_get_items('node', $node, $realm['field_name']);
+    $field_data = field_get_items('node', $node, $field_name);
     $tids = (!empty($field_data)) ? $field_data : array(array('tid' => 0));
 
     $used_tids = array();
@@ -97,16 +97,20 @@ function abt_node_access_records($node) {
       // Duplicate terms will probably never happen in normal usage but devel-generate module does this
       // when field cardinality is greater then 1 (there is a debate on wheather this is a bug or not).
       // Anyway, we adress it here and prevent duplicate terms trigger writing to the node_access table.
-      if(!in_array($tids[$i]['tid'], $used_tids)) {
-        $used_tids[] = $tids[$i]['tid'];
-        $grants[] = AbtUtils::grantConstruct(
-          $node->nid,
-          'abt_'.$realm['field_name'],
-          $tids[$i]['tid'],
-          ($realm['ctrl_view_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1,
-          ($realm['ctrl_update_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1,
-          ($realm['ctrl_delete_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1
-        );
+      if(isset($tids[$i]['tid'])) {
+        if(!in_array($tids[$i]['tid'], $used_tids)) {
+          $used_tids[] = $tids[$i]['tid'];
+          if (isset($realm['settings']['abt_map'])) {
+            $grants[] = AbtUtils::grantConstruct(
+              $node->nid,
+              'abt_'.$field_name,
+              $tids[$i]['tid'],
+              ($realm['settings']['abt_map']['ctrl_view_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1,
+              ($realm['settings']['abt_map']['ctrl_update_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1,
+              ($realm['settings']['abt_map']['ctrl_delete_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1
+            );
+          }
+        }
       }
     }
   }
@@ -128,11 +132,7 @@ function abt_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id)
     & !user_access('assign delete access control')
   );
 
-  $current = db_select('abt_map', 'a')
-    ->fields('a')
-    ->condition('field_name', $form['#field']['field_name'])
-    ->execute()
-    ->fetchAssoc();
+  $current = field_info_field($form['#field']['field_name']);
 
   $form['abt'] = array(
       '#type' => 'fieldset',
@@ -156,7 +156,7 @@ function abt_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id)
           ABT_CONTROL_DEFAULT_ALLOW => t('Yes, but allow access if node is not tagged.')
         ),
         '#description' => t('Set this to control the "<strong>@op</strong>" access for the content type <strong>@ct</strong>.', array('@ct' => $form['#instance']['bundle'], '@op' => $op)),
-        '#default_value' => (isset($current['ctrl_'.$op.'_access']) ? $current['ctrl_'.$op.'_access'] : 0)
+        '#default_value' => (isset($current['settings']['abt_map']['ctrl_'.$op.'_access']) ? $current['settings']['abt_map']['ctrl_'.$op.'_access'] : 0)
       );
     }
   }
@@ -176,28 +176,31 @@ function abt_form_field_ui_field_edit_form_submit($form_data) {
   $ctrl_update_access = user_access('assign update access control') ? (int) $form_data['abt']['abt_enable_update_control']['#value'] : 0;
   $ctrl_delete_access = user_access('assign delete access control') ? (int) $form_data['abt']['abt_enable_delete_control']['#value'] : 0;
 
-  $changes = db_select('abt_map', 'a')
-    ->fields('a')
-    ->condition('field_name', $field_name)
-    ->condition('ctrl_view_access', $ctrl_view_access)
-    ->condition('ctrl_update_access', $ctrl_update_access)
-    ->condition('ctrl_delete_access', $ctrl_delete_access)
-    ->execute()
-    ->rowCount();
-
-  if($changes === 0) {
-    // Changes detected
-    db_delete('abt_map')->condition('field_name', $field_name)->execute();
-    if(($ctrl_view_access + $ctrl_update_access + $ctrl_delete_access) > 0) {
-      db_insert('abt_map')
-        ->fields(array(
-          'field_name' => $field_name,
-          'ctrl_view_access' => $ctrl_view_access,
-          'ctrl_update_access' => $ctrl_update_access,
-          'ctrl_delete_access' => $ctrl_delete_access,
-        ))
-        ->execute();
+  $field = field_info_field($field_name);
+  $changes = 0;
+  if (isset($field['settings']['abt_map'])) {
+    if ($field['settings']['abt_map']['ctrl_view_access'] != $ctrl_view_access) {
+      $changes++;
     }
+    if ($field['settings']['abt_map']['ctrl_update_access'] != $ctrl_update_access) {
+      $changes++;
+    }
+    if ($field['settings']['abt_map']['ctrl_delete_access'] != $ctrl_delete_access) {
+      $changes++;
+    }
+  } else {
+    $changes++;
+  }
+
+  if($changes > 0) {
+    // Changes detected
+    $field_abt_map = array(
+      'ctrl_view_access' => $ctrl_view_access,
+      'ctrl_update_access' => $ctrl_update_access,
+      'ctrl_delete_access' => $ctrl_delete_access,
+    );
+    $field['settings']['abt_map'] = $field_abt_map;
+    field_update_field($field);
     node_access_needs_rebuild(TRUE);
   }
 
@@ -212,13 +215,13 @@ function abt_form_field_ui_field_edit_form_submit($form_data) {
  * Also prevents users from editing abt tags if they don't have apropriate permissions.
  */
 function abt_form_node_form_alter(&$form, &$form_state, $form_id) {
-  $access_map = db_select('abt_map', 'a')->fields('a')->execute();
-  while($realm = $access_map->fetchAssoc()) {
-    if(isset($form[$realm['field_name']])) {
-      $field =& $form[$realm['field_name']];
-      $view = ($realm['ctrl_view_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('view').' ' : '';
-      $update = ($realm['ctrl_update_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('update').' ' : '';
-      $delete = ($realm['ctrl_delete_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('delete').' ' : '';
+  $access_map = field_read_fields();
+  foreach ($access_map as $field_name => $realm) {
+    if(isset($realm['settings']['abt_map'])) {
+      $field =& $form[$field_name];
+      $view = ($realm['settings']['abt_map']['ctrl_view_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('view').' ' : '';
+      $update = ($realm['settings']['abt_map']['ctrl_update_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('update').' ' : '';
+      $delete = ($realm['settings']['abt_map']['ctrl_delete_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('delete').' ' : '';
 
       $msg = str_replace(' ', ', ', trim($view.$update.$delete));
       $msg = (!empty($msg)) ? ' <em>'.t('(Access control enabled for: @msg)', array('@msg' => $msg)).'</em>' : '';
@@ -262,12 +265,9 @@ function abt_user_view($account, $view_mode, $langcode) {
 
 function abt_remove_fields($data) {
   // Fetch field_names used with abt.
-  $abt_fields = db_select('abt_map', 'a')
-    ->fields('a',array('field_name'))
-    ->execute()
-    ->fetchCol();
 
-  foreach($abt_fields as $field_name) {
+  $abt_fields = field_read_fields();
+  foreach($abt_fields as $field_name => $field) {
     if(is_array($data)) {
       unset($data[$field_name]);
     } elseif(is_object($data) && property_exists($data,$field_name)) {

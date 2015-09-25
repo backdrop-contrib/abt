@@ -8,7 +8,11 @@
  * Implements hook_uninstall().
  */
 function abt_uninstall() {
-  db_drop_table('abt_map');
+  $fields = field_read_fields();
+  foreach ($fields as $field_name => $field) {
+    unset($field['settings']['abt_map']);
+    field_update_field($field);
+  }
 }
 
 /**
@@ -16,42 +20,6 @@ function abt_uninstall() {
  */
 function abt_enable() {
   drupal_set_message('Access by Term enabled. Do not forget to <a href="people/permissions">set the permissions</a>.');
-}
-
-function abt_schema() {
-  $schema['abt_map'] = array(
-    'description' => 'Holds the list of fieldnames which will control node access.',
-    'fields' => array(
-      'field_name' => array(
-        'type' => 'varchar',
-        'length' => 128,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'The field name.',
-        'translatable' => FALSE,
-      ),
-      'ctrl_view_access' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-        'description' => 'Whether this field controls the view access.',
-      ),
-      'ctrl_update_access' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-        'description' => 'Whether this field controls the update access.',
-      ),
-      'ctrl_delete_access' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-        'description' => 'Whether this field controls the delete access.',
-      ),
-    ),
-  );
-
-  return $schema;
 }
 
 function abt_update_7001() {
@@ -87,4 +55,22 @@ function abt_update_7001() {
     ),
   );
   db_create_table('abt_map', $schema['abt_map']);
+}
+
+/**
+ * Convert from abt_map to field_config.
+ */
+function abt_update_7002() {
+  $access_map = db_select('abt_map', 'a')->fields('a')->execute();
+  while($realm = $access_map->fetchAssoc()) {
+    $field = field_info_field($realm['field_name']);
+    $field_abt_map = array(
+      'ctrl_view_access' => $realm['ctrl_view_access'],
+      'ctrl_update_access' => $realm['ctrl_update_access'],
+      'ctrl_delete_access' => $realm['ctrl_delete_access'],
+    );
+    $field['settings']['abt_map'] = $field_abt_map;
+    field_update_field($field);
+  }
+  db_drop_table('abt_map');
 }

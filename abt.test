@@ -303,15 +303,20 @@ class ABTPermissionFieldTestCase extends ABTWebTestCase {
       $u = $combos[$i]['u'];
       $d = $combos[$i]['d'];
       $this->postFieldSettings($this->content_type->type, $this->field_instances['node'][$j], $v, $u, $d);
-      $expect = (int) !(!$v && !$u && !$d);
-      $query = db_select('abt_map', 'a');
-      $query->fields('a')
-        ->condition('field_name', $this->field_instances['node'][$j]['field_name'],'=')
-        ->condition('ctrl_view_access',   $v, '=')
-        ->condition('ctrl_update_access', $u, '=')
-        ->condition('ctrl_delete_access', $d, '=');
-      $rowCount = $query->execute()->rowCount();
-
+      $expect = 1;
+      $field = field_info_field($this->field_instances['node'][$j]['field_name']);
+      $rowCount = 1;
+      if (isset($field['settings']['abt_map'])) {
+        if ($field['settings']['abt_map']['ctrl_view_access'] != $v) {
+          $rowCount = 0;
+        }
+        if ($field['settings']['abt_map']['ctrl_update_access'] != $u) {
+          $rowCount = 0;
+        }
+        if ($field['settings']['abt_map']['ctrl_delete_access'] != $d) {
+          $rowCount = 0;
+        }
+      }
       $this->assertTrue(
         ($rowCount == $expect),
         t('Field values changed as planned. ('.$v.$u.$d.') = ('.$rowCount.') Row was @not found.', array('@not' => ($expect ? '' : 'not' )))
@@ -364,15 +369,19 @@ class ABTPermissionGrantsTestCase extends ABTWebTestCase {
       $expect_map = array();
       for($i = 0; $i < count($this->terms); $i++) {
 
-        db_delete('abt_map')->execute(); // clean slate (for good measure)
-        db_insert('abt_map')
-          ->fields(array(
-            'field_name' => $field_name,
-            'ctrl_view_access' => $v,
-            'ctrl_update_access' => $u,
-            'ctrl_delete_access' => $d,
-          ))
-          ->execute();
+        $fields = field_read_fields();
+        foreach ($fields as $field_name => $field) {
+          unset($field['settings']['abt_map']);
+          field_update_field($field);
+        } // clean slate (for good measure)
+        $field = field_info_field($field_name);
+        $field_abt_map = array(
+          'ctrl_view_access' => $v,
+          'ctrl_update_access' => $u,
+          'ctrl_delete_access' => $d,
+        );
+        $field['settings']['abt_map'] = $field_abt_map;
+        field_update_field($field);
         node_access_rebuild();
 
         $term_list_ordered = $this->terms[$i];
