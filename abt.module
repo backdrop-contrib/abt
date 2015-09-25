@@ -19,7 +19,9 @@ define('ABT_CONTROL_DEFAULT_ALLOW', 2);
 function abt_node_grants($account, $op) {
   $grants = array();
   $usr = user_load($account->uid);
+  
   $access_map = db_select('abt_map', 'a')->fields('a')->execute();
+  
   while($r = $access_map->fetchAssoc()) {
     if(property_exists($usr,$r['field_name']) === TRUE) {  // Current realm is applicable on this user.
       // Get the tids from users field (realm).
@@ -30,12 +32,46 @@ function abt_node_grants($account, $op) {
           $grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms);
       }
     }
+    
+    // Check for Profile 2 module
+    if(module_exists('profile2')) {
+      // Get a list of profile names with current $r field.
+      $profile_names = db_select('field_config_instance', 'fci')
+        ->fields('fci', array('bundle'))
+        ->condition('field_name', $r['field_name'])
+        ->execute();
+        
+      while($pname = $profile_names->fetchAssoc()) {
+        // Check if user has profile with $r field and get pid if true.
+        $pids = db_select('profile', 'p')
+          ->fields('p', array('pid'))
+          ->condition('type', $pname['bundle'])
+          ->condition('uid', $usr->uid)
+          ->execute();
+          
+        while($pid = $pids->fetchAssoc()) {
+          // Load Profile by pid.
+          $profile = profile2_load($pid['pid']);
+          if(property_exists($profile, $r['field_name']) === TRUE) {
+            $terms = field_get_items('profile2', $profile, $r['field_name']);
+            /* Is this realm controlling the requested operation */
+            if(array_key_exists('ctrl_'.$op.'_access',$r) && $r['ctrl_'.$op.'_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) {
+              /* Get the children of terms and assign them all to the current realm. */
+              $grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms);
+            } 
+          }
+          
+        }
+        
+      }
+    }
 
     if($r['ctrl_'.$op.'_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
       // This zero makes sure that every user has update access to unrestricted nodes.
       $grants['abt_'.$r['field_name']][0] = 0;
     }    
   }
+  
   return $grants;
 }
 
@@ -49,7 +85,6 @@ function abt_node_grants($account, $op) {
 function abt_node_access_records($node) {
   $tids = $grants = array();
   $access_map = db_select('abt_map', 'a')->fields('a')->execute();
-  
   while($realm = $access_map->fetchAssoc()) {
     if(!property_exists($node,$realm['field_name'])) { continue; }
 
