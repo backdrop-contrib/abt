@@ -50,7 +50,7 @@ function abt_schema() {
       ),
     ),
   );
-  
+
   return $schema;
 }
 

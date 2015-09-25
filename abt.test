@@ -14,7 +14,7 @@ class ABTWebTestCase extends DrupalWebTestCase {
   function setUp() {
     parent::setUp('abt');
   }
-  
+
   /* Partial setup */
   function setUpTaxonomy() {
     $this->vocabularies = $this->createVocabulary();
@@ -26,7 +26,7 @@ class ABTWebTestCase extends DrupalWebTestCase {
     $this->fields = $this->createFields($field_number);
     $this->field_instances = $this->createFieldInstances($this->fields, $this->content_type);
   }
-  
+
   /* Helpers */
   function tagUser(&$user, $field_name, $tids = array()) {
     for($i = 0; $i < count($tids); $i++) {
@@ -35,7 +35,7 @@ class ABTWebTestCase extends DrupalWebTestCase {
     user_save($user);
     #$this->unauthorized_user->{$this->field_instances['user'][0]['field_name']}['und'][]['tid'] = $this->terms[0]->tid;
   }
-  
+
   function createVocabulary($numberOfVocs = 1) {
     for($i = 0; $i < $numberOfVocs; $i++) {
       $vocs[$i] = (object) array(
@@ -59,7 +59,7 @@ class ABTWebTestCase extends DrupalWebTestCase {
         );
         taxonomy_term_save($term);
         $parent = $term->tid;
-        $terms[$i][$j] = $term;     
+        $terms[$i][$j] = $term;
       }
     }
     return $terms;
@@ -69,7 +69,7 @@ class ABTWebTestCase extends DrupalWebTestCase {
     // Create a content type programmaticaly.
     return $this->drupalCreateContentType();
   }
-  
+
   function createFields($number_of_fields = 3) {
     $fields = array();
     $vocs = isset($this->vocabularies) ? $this->vocabularies : array((object) array('machine_name'=>'no_voc'));
@@ -79,13 +79,13 @@ class ABTWebTestCase extends DrupalWebTestCase {
         $voc_index = 0;
       }
       $field = array(
-        'field_name' => drupal_strtolower($this->randomName() . '_field_name'), 
-        'type' => 'taxonomy_term_reference', 
+        'field_name' => drupal_strtolower($this->randomName() . '_field_name'),
+        'type' => 'taxonomy_term_reference',
         'cardinality' => FIELD_CARDINALITY_UNLIMITED,
         'settings' => array(
           'allowed_values' => array(
             array(
-              'vocabulary' => $vocs[$voc_index]->machine_name, 
+              'vocabulary' => $vocs[$voc_index]->machine_name,
               'parent' => 0,
              ),
            ),
@@ -112,31 +112,31 @@ class ABTWebTestCase extends DrupalWebTestCase {
             'type' => 'test_field_widget',
             'settings' => array('size' => mt_rand(0, 255))
           )
-        );      
+        );
         field_create_instance($instances[$entity_types[$i]][$j]);
       }
-    } 
+    }
     return $instances;
   }
-  
+
   function postFieldSettings($content_type, $field, $v, $u, $d) {
     $this->drupalPost(
-      'admin/structure/types/manage/'.$content_type.'/fields/'.$field['field_name'], 
+      'admin/structure/types/manage/'.$content_type.'/fields/'.$field['field_name'],
       array(
         'abt_enable_view_control' => (int) $v,
         'abt_enable_update_control' => (int) $u,
         'abt_enable_delete_control' => (int) $d,
-      ), 
+      ),
       'Save settings'
     );
     $this->assertText(t('Saved '.$field['label'].' configuration.'));
   }
 }
-    
+
 
 
 class ABTEnviromentTestCase extends ABTWebTestCase {
-  
+
   public static function getInfo() {
     return array(
       'name' => 'ABT environment test',
@@ -184,14 +184,14 @@ class ABTEnviromentTestCase extends ABTWebTestCase {
     $type_exists = db_query('SELECT 1 FROM {node_type} WHERE type = :type', array(':type' => $this->content_type->type))->fetchField();
     $this->assertTrue($type_exists, 'The new content type has been created in the database: ('.$this->content_type->type.')');
   }
-  
+
   function envTestFieldCreation() {
     #$this->assertEqual(count($this->fields), 3, 'flds: '.$this->fields[0]['type']);
     for($i = 0; $i < count($this->fields); $i++) {
      $loaded = field_info_field($this->fields[$i]['field_name']);
      $this->assertEqual(
-       $loaded['field_name'].$loaded['type'], 
-       $this->fields[$i]['field_name'].$this->fields[$i]['type'], 
+       $loaded['field_name'].$loaded['type'],
+       $this->fields[$i]['field_name'].$this->fields[$i]['type'],
        t('Field (@fname) was created.', array('@fname' => $loaded['field_name'].', '.$loaded['type']))
       );
     }
@@ -202,36 +202,36 @@ class ABTEnviromentTestCase extends ABTWebTestCase {
         $field_name = $this->field_instances[$entity_types[$i]][$j]['field_name'];
         $bundle = $this->field_instances[$entity_types[$i]][$j]['bundle'];
         $loaded = field_info_instance(
-          $entity_types[$i], 
+          $entity_types[$i],
           $field_name,
           $bundle
         );
         $this->assertTrue(
-          isset($loaded['id']), 
+          isset($loaded['id']),
           t('Field instance created for field (@instname)', array('@instname' => $field_name.' - '.$loaded['entity_type']))
         );
         // Another way to check if field instances are created...
         // $info = _field_info_collate_fields();
         // $this->assertTrue(
-        //   isset($info['instances'][$entity_types[$i]][$bundle][$field_name]), 
+        //   isset($info['instances'][$entity_types[$i]][$bundle][$field_name]),
         //   t('Field instance created: (@instname)', array('@instname' => $field_name.' - '.$this->field_instances[$entity_types[$i]][$j]['label']))
         // );
       }
     }
-  } 
+  }
 
   function envTestUserData() {
     $usr = user_load($this->user->uid);
     $this->tagUser(
-      $usr, 
-      $this->fields[0]['field_name'], 
+      $usr,
+      $this->fields[0]['field_name'],
       $tids = array($this->terms[0][1]->tid, $this->terms[0][1]->tid)
     );
     $usr = user_load($this->user->uid);
     $tid = $usr->{$this->fields[0]['field_name']}['und'][0]['tid'];
     $term = taxonomy_term_load($tid);
     $this->assertTrue(
-      isset($term->name), 
+      isset($term->name),
       t('User tagged with term id (@var1)', array('@var1' => $tid.' - '.$term->tid.' - '.$term->name.' - '.$this->field_instances['user'][0]['field_name']))
     );
   }
@@ -242,16 +242,16 @@ class ABTEnviromentTestCase extends ABTWebTestCase {
     ));
     $n = node_load($node->nid);
     $this->assertTrue(
-      isset($n->nid), 
+      isset($n->nid),
       'Node created. (Nid:'.$n->nid.')'
     );
-    
+
     $n->{$this->field_instances['node'][0]['field_name']}[$node->language][]['tid'] = $this->terms[0][1]->tid;
     node_save($n);
     $saved_tid = $n->{$this->field_instances['node'][0]['field_name']}[$node->language][0]['tid'];
     $n = node_load($n->nid); // just in case :)
     $this->assertTrue(
-      (isset($n->nid) && ($this->terms[0][1]->tid == $saved_tid)), 
+      (isset($n->nid) && ($this->terms[0][1]->tid == $saved_tid)),
       'Term reference added. (Nid:'.$n->nid.' - Tid:'.$saved_tid.')'
     );
   }
@@ -267,7 +267,7 @@ class ABTPermissionFieldTestCase extends ABTWebTestCase {
       'group' => 'Access by Term (ABT)',
     );
   }
-  
+
   function setUp() {
     parent::setUp();
     $this->setUpTaxonomy();
@@ -289,11 +289,11 @@ class ABTPermissionFieldTestCase extends ABTWebTestCase {
       array('v' => ABT_CONTROL_DEFAULT_RESTRICT, 'u' => ABT_NO_CONTROL, 'd' => ABT_NO_CONTROL),
       array('v' => ABT_NO_CONTROL, 'u' => ABT_CONTROL_DEFAULT_RESTRICT, 'd' => ABT_NO_CONTROL),
       array('v' => ABT_NO_CONTROL, 'u' => ABT_NO_CONTROL, 'd' => ABT_CONTROL_DEFAULT_RESTRICT),
-      
+
       array('v' => ABT_CONTROL_DEFAULT_RESTRICT, 'u' => ABT_CONTROL_DEFAULT_RESTRICT, 'd' => ABT_NO_CONTROL),
       array('v' => ABT_CONTROL_DEFAULT_RESTRICT, 'u' => ABT_NO_CONTROL, 'd' => ABT_CONTROL_DEFAULT_RESTRICT),
       array('v' => ABT_NO_CONTROL, 'u' => ABT_CONTROL_DEFAULT_RESTRICT, 'd' => ABT_CONTROL_DEFAULT_RESTRICT),
-      
+
       array('v' => ABT_NO_CONTROL, 'u' => ABT_NO_CONTROL, 'd' => ABT_NO_CONTROL), /* this row should not be saved */
       array('v' => ABT_CONTROL_DEFAULT_RESTRICT, 'u' => ABT_CONTROL_DEFAULT_RESTRICT, 'd' => ABT_CONTROL_DEFAULT_RESTRICT),
     );
@@ -311,9 +311,9 @@ class ABTPermissionFieldTestCase extends ABTWebTestCase {
         ->condition('ctrl_update_access', $u, '=')
         ->condition('ctrl_delete_access', $d, '=');
       $rowCount = $query->execute()->rowCount();
-      
+
       $this->assertTrue(
-        ($rowCount == $expect), 
+        ($rowCount == $expect),
         t('Field values changed as planned. ('.$v.$u.$d.') = ('.$rowCount.') Row was @not found.', array('@not' => ($expect ? '' : 'not' )))
       );
     }
@@ -322,7 +322,7 @@ class ABTPermissionFieldTestCase extends ABTWebTestCase {
 
 
 class ABTPermissionGrantsTestCase extends ABTWebTestCase {
-  
+
   public static function getInfo() {
     return array(
       'name' => 'ABT node access grants test',
@@ -330,18 +330,18 @@ class ABTPermissionGrantsTestCase extends ABTWebTestCase {
       'group' => 'Access by Term (ABT)',
     );
   }
-  
+
   function setUp() {
     parent::setUp();
     $this->setUpTaxonomy();
     $this->setUpContentStructure(5);
   }
-  
+
   function testGrants() {
     $this->accessGrants(); // authenticated users
     $this->accessGrants(false); // unauthenticated users
   }
-  
+
   function accessGrants($authenticateUsers = true) {
 
     $flag_map[$this->fields[0]['field_name']] = array('v'=>1,'u'=>1,'d'=>1);
@@ -357,17 +357,17 @@ class ABTPermissionGrantsTestCase extends ABTWebTestCase {
       $v = $flag_map[$field_name]['v'];
       $u = $flag_map[$field_name]['u'];
       $d = $flag_map[$field_name]['d'];
-              
+
       // loop trough terms and create users
       $user_map = array();
       $node_map = array();
       $expect_map = array();
       for($i = 0; $i < count($this->terms); $i++) {
-      
+
         db_delete('abt_map')->execute(); // clean slate (for good measure)
         db_insert('abt_map')
           ->fields(array(
-            'field_name' => $field_name,  
+            'field_name' => $field_name,
             'ctrl_view_access' => $v,
             'ctrl_update_access' => $u,
             'ctrl_delete_access' => $d,
@@ -384,26 +384,26 @@ class ABTPermissionGrantsTestCase extends ABTWebTestCase {
         for($j = 0; $j < count($term_list_ordered); $j++) {
           $user_map[$i][$j] = $this->drupalCreateUser();
           $node_map[$i][$j] = $this->drupalCreateNode(array('type' => $this->content_type->type));
-        
+
           $usr = user_load($user_map[$i][$j]->uid);
           $nde = node_load($node_map[$i][$j]->nid);
           ($term_list_ordered[$j]->tid !== FALSE) && ($nde->{$field_name}['und'][0]['tid'] = $term_list_ordered[$j]->tid);
-          ($term_list_reversed[$j]->tid !== FALSE) && ($usr->{$field_name}['und'][0]['tid'] = $term_list_reversed[$j]->tid);  
+          ($term_list_reversed[$j]->tid !== FALSE) && ($usr->{$field_name}['und'][0]['tid'] = $term_list_reversed[$j]->tid);
           user_save($usr);
           node_save($nde);
-        
-          /* 
+
+          /*
           * Blocks bellow basicly say:
-          * if either node or user lacks access flag = expect "access denied". 
+          * if either node or user lacks access flag = expect "access denied".
           */
           // User has no access tags && Node has access tags
           if($term_list_reversed[$j]->tid === FALSE && $term_list_ordered[$j]->tid !== FALSE) {
             $expect_access[$i][$j] = FALSE;
-        
+
           // User has no access tags && Node has no access tags
           } elseif($term_list_reversed[$j]->tid === FALSE && $term_list_ordered[$j]->tid === FALSE) {
             $expect_access[$i][$j] = FALSE;
-        
+
           // User has access tags && Node has no access tags
           } elseif($term_list_reversed[$j]->tid !== FALSE && $term_list_ordered[$j]->tid === FALSE) {
             $expect_access[$i][$j] = FALSE;
@@ -428,7 +428,7 @@ class ABTPermissionGrantsTestCase extends ABTWebTestCase {
           $this->assertText($text_to_expect, $msg.' ('.$v.$u.$d.') user-tid:'.($term_list_reversed[$j]->tid === FALSE ? 'none' : $term_list_reversed[$j]->tid ).' <= node-tid:'.($term_list_ordered[$j]->tid === FALSE ? 'none' : $term_list_ordered[$j]->tid));
 
           $authenticateUsers && $this->drupalLogout($user_map[$i][$j]);
-        
+
         }
       }
     }

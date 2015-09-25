@@ -1,6 +1,6 @@
 <?php
 /**
- * @file abt.module 
+ * @file abt.module
  * Module for controling access by using user->term<-node relationship.
  */
 
@@ -10,18 +10,18 @@ define('ABT_CONTROL_DEFAULT_ALLOW', 2);
 
 /**
  * Implements hook_node_grants().
- * 
+ *
  * Every time a node (or a part of a node) is subject
  * to viewing/updating/deleting this hook is called
  * and we can evaluate the user access and his operations.
- * 
+ *
  */
 function abt_node_grants($account, $op) {
   $grants = array();
   $usr = user_load($account->uid);
-  
+
   $access_map = db_select('abt_map', 'a')->fields('a')->execute();
-  
+
   while($r = $access_map->fetchAssoc()) {
     if(property_exists($usr,$r['field_name']) === TRUE) {  // Current realm is applicable on this user.
       // Get the tids from users field (realm).
@@ -32,7 +32,7 @@ function abt_node_grants($account, $op) {
           $grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms);
       }
     }
-    
+
     // Check for Profile 2 module
     if(module_exists('profile2')) {
       // Get a list of profile names with current $r field.
@@ -40,7 +40,7 @@ function abt_node_grants($account, $op) {
         ->fields('fci', array('bundle'))
         ->condition('field_name', $r['field_name'])
         ->execute();
-        
+
       while($pname = $profile_names->fetchAssoc()) {
         // Check if user has profile with $r field and get pid if true.
         $pids = db_select('profile', 'p')
@@ -48,7 +48,7 @@ function abt_node_grants($account, $op) {
           ->condition('type', $pname['bundle'])
           ->condition('uid', $usr->uid)
           ->execute();
-          
+
         while($pid = $pids->fetchAssoc()) {
           // Load Profile by pid.
           $profile = profile2_load($pid['pid']);
@@ -58,20 +58,20 @@ function abt_node_grants($account, $op) {
             if(array_key_exists('ctrl_'.$op.'_access',$r) && $r['ctrl_'.$op.'_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) {
               /* Get the children of terms and assign them all to the current realm. */
               $grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms);
-            } 
+            }
           }
-          
+
         }
-        
+
       }
     }
 
     if($r['ctrl_'.$op.'_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
       // This zero makes sure that every user has update access to unrestricted nodes.
       $grants['abt_'.$r['field_name']][0] = 0;
-    }    
+    }
   }
-  
+
   return $grants;
 }
 
@@ -90,19 +90,19 @@ function abt_node_access_records($node) {
 
     $field_data = field_get_items('node', $node, $realm['field_name']);
     $tids = (!empty($field_data)) ? $field_data : array(array('tid' => 0));
-    
-    $used_tids = array(); 
+
+    $used_tids = array();
     for($i = 0; $i < count($tids); $i++) {
       // node_access table does not allow duplicate nid-gid-realm combo (in our case it's nid-tid-fieldname).
-      // Duplicate terms will probably never happen in normal usage but devel-generate module does this 
+      // Duplicate terms will probably never happen in normal usage but devel-generate module does this
       // when field cardinality is greater then 1 (there is a debate on wheather this is a bug or not).
       // Anyway, we adress it here and prevent duplicate terms trigger writing to the node_access table.
       if(!in_array($tids[$i]['tid'], $used_tids)) {
         $used_tids[] = $tids[$i]['tid'];
         $grants[] = AbtUtils::grantConstruct(
-          $node->nid, 
-          'abt_'.$realm['field_name'], 
-          $tids[$i]['tid'], 
+          $node->nid,
+          'abt_'.$realm['field_name'],
+          $tids[$i]['tid'],
           ($realm['ctrl_view_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1,
           ($realm['ctrl_update_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1,
           ($realm['ctrl_delete_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1
@@ -121,27 +121,27 @@ function abt_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id)
   if(!isset($form['#field']['type']) XOR $form['#field']['type'] != 'taxonomy_term_reference') {
     return;
   }
-  
+
   $no_perms = (
-      !user_access('assign view access control') 
-    & !user_access('assign update access control') 
+      !user_access('assign view access control')
+    & !user_access('assign update access control')
     & !user_access('assign delete access control')
   );
-  
+
   $current = db_select('abt_map', 'a')
     ->fields('a')
     ->condition('field_name', $form['#field']['field_name'])
     ->execute()
     ->fetchAssoc();
-  
+
   $form['abt'] = array(
-      '#type' => 'fieldset', 
-      '#title' => t('Access by Term'), 
-      '#weight' => -1, 
-      '#collapsible' => TRUE, 
+      '#type' => 'fieldset',
+      '#title' => t('Access by Term'),
+      '#weight' => -1,
+      '#collapsible' => TRUE,
       '#collapsed' => FALSE,
-      '#description' => ($no_perms) ? 
-        '<p>'.t('Sorry but you have no permission to assign access control to fields. Talk to your administrator.').'</p>' : 
+      '#description' => ($no_perms) ?
+        '<p>'.t('Sorry but you have no permission to assign access control to fields. Talk to your administrator.').'</p>' :
         '<p>'.t('<em>If you check one of below fields, the specified access for this content type will be controlled by ABT and unauthorized users will have no access to this content type. However, if none are checked, this remains a regular field. Let\'s say you check only "delete" flag. This would mean you want to control the "delete" access with the field. Other two unchecked boxes will result in default access settings.</em>').'</p>'
         .'<p>'.t('<em>Note: by changing these settings, you will need to rebuild your content permissions.</em>').'</p>'
   );
@@ -165,9 +165,9 @@ function abt_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id)
 
 function abt_form_field_ui_field_edit_form_submit($form_data) {
   if(
-    !isset($form_data['abt']['abt_enable_view_control']) && 
-    !isset($form_data['abt']['abt_enable_view_control']) && 
-    !isset($form_data['abt']['abt_enable_delete_control']) 
+    !isset($form_data['abt']['abt_enable_view_control']) &&
+    !isset($form_data['abt']['abt_enable_view_control']) &&
+    !isset($form_data['abt']['abt_enable_delete_control'])
   ) {
     return;
   }
@@ -175,7 +175,7 @@ function abt_form_field_ui_field_edit_form_submit($form_data) {
   $ctrl_view_access = user_access('assign view access control') ? (int) $form_data['abt']['abt_enable_view_control']['#value'] : 0;
   $ctrl_update_access = user_access('assign update access control') ? (int) $form_data['abt']['abt_enable_update_control']['#value'] : 0;
   $ctrl_delete_access = user_access('assign delete access control') ? (int) $form_data['abt']['abt_enable_delete_control']['#value'] : 0;
-  
+
   $changes = db_select('abt_map', 'a')
     ->fields('a')
     ->condition('field_name', $field_name)
@@ -191,24 +191,24 @@ function abt_form_field_ui_field_edit_form_submit($form_data) {
     if(($ctrl_view_access + $ctrl_update_access + $ctrl_delete_access) > 0) {
       db_insert('abt_map')
         ->fields(array(
-          'field_name' => $field_name,  
+          'field_name' => $field_name,
           'ctrl_view_access' => $ctrl_view_access,
           'ctrl_update_access' => $ctrl_update_access,
           'ctrl_delete_access' => $ctrl_delete_access,
         ))
         ->execute();
-    } 
+    }
     node_access_needs_rebuild(TRUE);
   }
-  
+
 }
 
 /**
  * Implements hook_form_BASE_FORM_ID_alter().
- * 
- * Here we tell users if a field is beeing used for access control. 
+ *
+ * Here we tell users if a field is beeing used for access control.
  * Even which aspect of access control the field is defining (view,update,delete).
- * 
+ *
  * Also prevents users from editing abt tags if they don't have apropriate permissions.
  */
 function abt_form_node_form_alter(&$form, &$form_state, $form_id) {
@@ -219,14 +219,14 @@ function abt_form_node_form_alter(&$form, &$form_state, $form_id) {
       $view = ($realm['ctrl_view_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('view').' ' : '';
       $update = ($realm['ctrl_update_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('update').' ' : '';
       $delete = ($realm['ctrl_delete_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) ? t('delete').' ' : '';
-      
+
       $msg = str_replace(' ', ', ', trim($view.$update.$delete));
       $msg = (!empty($msg)) ? ' <em>'.t('(Access control enabled for: @msg)', array('@msg' => $msg)).'</em>' : '';
-      
+
       $field[$field['#language']]['#title'] = $field[$field['#language']]['#title'].$msg;
     }
   }
-  
+
   // Remove the abt field if needed.
   if(!user_access('allow edit abt field content in node')) {
     $form = abt_remove_fields($form);
@@ -273,7 +273,7 @@ function abt_remove_fields($data) {
     } elseif(is_object($data) && property_exists($data,$field_name)) {
       unset($data->{$field_name});
     }
-    
+
   }
   return $data;
 }
@@ -322,10 +322,10 @@ function abt_help($path, $arg) {
     $out = '';
     $out .= '<h3>' . t('About ABT') . '</h3>';
     $out .= '<p>' . t('ABT (Access by Term) is a module that controls node access based on relationship between node-&gt;term&lt;-user where taxonomy terms allow for hierarchical content access control.') . '</p>';
-    
+
     $out .= '<h3>' . t('Installation') . '</h3>';
     $out .= '<p>' . t('Install & enable.') . '</p>';
-    
+
     $out .= '<h3>' . t('Usage') . '</h3>';
     $out .= '<ol>';
     $out .= '<li>' . t('After enabling the module, make sure you set appropriate permissions for your roles.') . '</li>';

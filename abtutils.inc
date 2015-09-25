@@ -6,23 +6,23 @@
 
 /**
  * Static class containing utility methods for the ABT module.
- * 
+ *
  */
 class AbtUtils {
 
-  /** 
-   * Method for fetching all of the children for a taxonomy 
+  /**
+   * Method for fetching all of the children for a taxonomy
    * term or an array of taxonomy terms.
-   * 
+   *
    * @param string $terms
-   *    Array of terms. Each term must be an object containing 
+   *    Array of terms. Each term must be an object containing
    *    properties tid, vid & name.
    *
    * @return Array
    *    On success returns array of terms with all their children.
    *    On failure returns an empty array.
-   *    
-   */ 
+   *
+   */
   public static function taxonomyGetChildrenAll($terms) {
     $out = array();
     if (empty($terms) || !is_array($terms)) {
@@ -46,9 +46,9 @@ class AbtUtils {
     }
     return $out;
   }
-  
-  /** 
-   * Method for constructing the grant array, used when creating grants 
+
+  /**
+   * Method for constructing the grant array, used when creating grants
    * to write to node_access table.
    *
    *
@@ -65,19 +65,19 @@ class AbtUtils {
    *    Allow delete. 1 is for TRUE, 0 is for FALSE.
    * @param int $priority
    *    (optional) priority for this grant. The higher, the more important.
-   * 
+   *
    * @return Array
    *    Grant constructed and ready for baking.
-   *    
+   *
    */
   public static function grantConstruct($nid, $realm, $gid, $v, $u, $d, $priority = 1) {
     return array(
       'nid' => $nid,
-      'realm' => $realm, 
-      'gid' => $gid, 
-      'grant_view' => $v, 
-      'grant_update' => $u, 
-      'grant_delete' => $d, 
+      'realm' => $realm,
+      'gid' => $gid,
+      'grant_view' => $v,
+      'grant_update' => $u,
+      'grant_delete' => $d,
       'priority' => $priority,
     );
   }
