@@ -8,10 +8,12 @@
  * Implements hook_uninstall().
  */
 function abt_uninstall() {
-  $fields = field_read_fields();
+  $fields = field_read_fields(array('module' => 'taxonomy'));
   foreach ($fields as $field_name => $field) {
-    unset($field['settings']['abt_map']);
-    field_update_field($field);
+    if(array_key_exists('abt_map', $field['settings'])) {
+      unset($field['settings']['abt_map']);
+      field_update_field($field);
+    }
   }
 }
 

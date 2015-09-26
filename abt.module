@@ -81,7 +81,7 @@ function abt_node_access_records($node) {
   $grants = array();
   $access_map = field_read_fields(array('module' => 'taxonomy'));
   foreach ($access_map as $field_name => $realm) {
-    if(!property_exists($node,$field_name) || !(array_key_exists('settings', $realm) && array_key_exists('abt_map', $realm['settings']))) {
+    if(!property_exists($node,$field_name) || !array_key_exists('abt_map', $realm['settings'])) {
       continue;
     }
     $allow = array();
