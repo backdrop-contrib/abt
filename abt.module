@@ -8,6 +8,19 @@ define('ABT_NO_CONTROL', 0);
 define('ABT_CONTROL_DEFAULT_RESTRICT', 1);
 define('ABT_CONTROL_DEFAULT_ALLOW', 2);
 
+/**
+ * Implements hook_node_access().
+ *
+ * Runs every time a user tries to view a node. If the node is unpublished
+ * and the user has no roles with the permission "view unpublished abt controlled nodes"
+ * then the visitor sees "access denied".
+ */
+function abt_node_access($node, $op, $account) {
+  if (($op == 'view') && ($node->status == 0) && !user_access('view unpublished abt controlled nodes')) {
+    return NODE_ACCESS_DENY;
+  }
+}
+
 
 /**
  * Implements hook_node_grants().
@@ -68,6 +81,7 @@ function abt_node_grants($account, $op) {
     // Make sure that user has the bare minimum in order to see unrestricted nodes
     $grants['abt_'.$r['field_name']][] = 0;
   }
+
   return $grants;
 }
 
@@ -320,6 +334,10 @@ function abt_permission() {
     ),
     'allow view abt field content in node' => array(
       'title' => t('Allow users to <strong>view</strong> ABT terms on node page.'),
+      'restrict access' => TRUE,
+    ),
+    'view unpublished abt controlled nodes' => array(
+      'title' => t('Allow users to <strong>view</strong> unpublished nodes, controlled with ABT.'),
       'restrict access' => TRUE,
     ),
   );
