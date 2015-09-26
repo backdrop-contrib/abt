@@ -18,22 +18,20 @@ define('ABT_CONTROL_DEFAULT_ALLOW', 2);
  */
 function abt_node_grants($account, $op) {
   $grants = array();
-  if ($account->uid == 0) {
-    return $grants;
-  }
   $usr = user_load($account->uid);
 
-  $access_map = field_read_fields();
+  $access_map = field_read_fields(array('module' => 'taxonomy'));
+  $cop = 'ctrl_'.$op.'_access';
 
   foreach ($access_map as $field_name => $r) {
-    if(property_exists($usr,$field_name) === TRUE) {  // Current realm is applicable on this user.
+    if(!(array_key_exists('abt_map', $r['settings']) && array_key_exists($cop, $r['settings']['abt_map']))) {
+      continue;
+    }
+    if(is_object($usr) && property_exists($usr, $field_name) === TRUE) {  // Current realm is applicable on this user.
       // Get the tids from users field (realm).
       $terms = field_get_items('user', $usr, $field_name);
-      /* Is this realm controlling the requested operation */
-      if(isset($r['settings']['abt_map']) && array_key_exists('ctrl_'.$op.'_access',$r['settings']['abt_map']) && $r['settings']['abt_map']['ctrl_'.$op.'_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) {
-          /* Get the children of terms and assign them all to the current realm. */
-          $grants['abt_'.$field_name] = AbtUtils::taxonomyGetChildrenAll($terms);
-      }
+      /* Get the children of terms and assign them all to the current realm. */
+      $grants['abt_'.$field_name] = AbtUtils::taxonomyGetChildrenAll($terms);
     }
 
     // Check for Profile 2 module
@@ -57,11 +55,8 @@ function abt_node_grants($account, $op) {
           $profile = profile2_load($pid['pid']);
           if(property_exists($profile, $r['field_name']) === TRUE) {
             $terms = field_get_items('profile2', $profile, $r['field_name']);
-            /* Is this realm controlling the requested operation */
-            if(array_key_exists('ctrl_'.$op.'_access',$r) && $r['ctrl_'.$op.'_access'] >= ABT_CONTROL_DEFAULT_RESTRICT) {
-              /* Get the children of terms and assign them all to the current realm. */
-              $grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms);
-            }
+            /* Get the children of terms and assign them all to the current realm. */
+            $grants['abt_'.$r['field_name']] = AbtUtils::taxonomyGetChildrenAll($terms);
           }
 
         }
@@ -69,12 +64,9 @@ function abt_node_grants($account, $op) {
       }
     }
 
-    if(isset($r['settings']['abt_map']) && $r['settings']['abt_map']['ctrl_'.$op.'_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
-      // This zero makes sure that every user has update access to unrestricted nodes.
-      $grants['abt_'.$field_name][0] = 0;
-    }
+    // Make sure that user has the bare minimum in order to see unrestricted nodes
+    $grants['abt_'.$r['field_name']][] = 0;
   }
-
   return $grants;
 }
 
@@ -86,37 +78,75 @@ function abt_node_grants($account, $op) {
  * fields - and then we act on that.
  */
 function abt_node_access_records($node) {
-  $tids = $grants = array();
-  $access_map = field_read_fields();
+  $grants = array();
+  $access_map = field_read_fields(array('module' => 'taxonomy'));
   foreach ($access_map as $field_name => $realm) {
-    if(!property_exists($node,$field_name)) { continue; }
+    if(!property_exists($node,$field_name) || !(array_key_exists('settings', $realm) && array_key_exists('abt_map', $realm['settings']))) {
+      continue;
+    }
+    $allow = array();
+    $abtmap = $realm['settings']['abt_map'];
+
+    if($abtmap['ctrl_view_access'] == ABT_NO_CONTROL) {
+      $allow['ctrl_view_access'] = 0;
+    }
+    if($abtmap['ctrl_update_access'] == ABT_NO_CONTROL) {
+      $allow['ctrl_update_access'] = 0;
+    }
+    if($abtmap['ctrl_delete_access'] == ABT_NO_CONTROL) {
+      $allow['ctrl_delete_access'] = 0;
+    }
+
 
     $field_data = field_get_items('node', $node, $field_name);
-    $tids = (!empty($field_data)) ? $field_data : array(array('tid' => 0));
+    if(empty($field_data)) {
+      if($abtmap['ctrl_view_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
+        $allow['ctrl_view_access'] = 0;
+      }
+      if($abtmap['ctrl_update_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
+        $allow['ctrl_update_access'] = 0;
+      }
+      if($abtmap['ctrl_delete_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
+        $allow['ctrl_delete_access'] = 0;
+      }
 
-    $used_tids = array();
-    for($i = 0; $i < count($tids); $i++) {
-      // node_access table does not allow duplicate nid-gid-realm combo (in our case it's nid-tid-fieldname).
-      // Duplicate terms will probably never happen in normal usage but devel-generate module does this
-      // when field cardinality is greater then 1 (there is a debate on wheather this is a bug or not).
-      // Anyway, we adress it here and prevent duplicate terms trigger writing to the node_access table.
-      if(isset($tids[$i]['tid'])) {
-        if(!in_array($tids[$i]['tid'], $used_tids)) {
-          $used_tids[] = $tids[$i]['tid'];
-          if (isset($realm['settings']['abt_map'])) {
-            $grants[] = AbtUtils::grantConstruct(
-              $node->nid,
-              'abt_'.$field_name,
-              $tids[$i]['tid'],
-              ($realm['settings']['abt_map']['ctrl_view_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1,
-              ($realm['settings']['abt_map']['ctrl_update_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1,
-              ($realm['settings']['abt_map']['ctrl_delete_access'] === ABT_NO_CONTROL) ? ABT_NO_CONTROL : 1
-            );
+    } else {
+      $used_tids = array();
+      for($i = 0; $i < count($field_data); $i++) {
+        // node_access table does not allow duplicate nid-gid-realm combo (in our case it's nid-tid-fieldname).
+        // Duplicate terms will probably never happen in normal usage but devel-generate module does this
+        // when field cardinality is greater then 1 (there is a debate on wheather this is a bug or not).
+        // Anyway, we adress it here and prevent duplicate terms trigger writing to the node_access table.
+        if(isset($field_data[$i]['tid'])) {
+          if(!in_array($field_data[$i]['tid'], $used_tids)) {
+            $used_tids[] = $field_data[$i]['tid'];
+            if (isset($realm['settings']['abt_map'])) {
+              $grants[] = AbtUtils::grantConstruct(
+                $node->nid,
+                'abt_'.$field_name,
+                $field_data[$i]['tid'],
+                (array_key_exists('ctrl_view_access', $allow) ? 0 : 1),
+                (array_key_exists('ctrl_update_access', $allow) ? 0 : 1),
+                (array_key_exists('ctrl_delete_access', $allow) ? 0 : 1)
+              );
+            }
           }
         }
       }
     }
+
+    if(!empty($allow)) {
+      $grants[] = AbtUtils::grantConstruct(
+        $node->nid,
+        'abt_'.$realm['field_name'],
+        0,
+        (array_key_exists('ctrl_view_access', $allow) ? 1 : 0),
+        (array_key_exists('ctrl_update_access', $allow) ? 1 : 0),
+        (array_key_exists('ctrl_delete_access', $allow) ? 1 : 0)
+      );
+    }
   }
+
   return $grants;
 }
 
@@ -218,7 +248,7 @@ function abt_form_field_ui_field_edit_form_submit($form_data) {
  * Also prevents users from editing abt tags if they don't have apropriate permissions.
  */
 function abt_form_node_form_alter(&$form, &$form_state, $form_id) {
-  $access_map = field_read_fields();
+  $access_map = field_read_fields(array('module' => 'taxonomy'));
   foreach ($access_map as $field_name => $realm) {
     if(isset($realm['settings']['abt_map'])) {
       $field =& $form[$field_name];
@@ -268,14 +298,15 @@ function abt_user_view($account, $view_mode, $langcode) {
 
 function abt_remove_fields($data) {
   // Fetch field_names used with abt.
-  $abt_fields = field_read_fields();
+  $abt_fields = field_read_fields(array('module' => 'taxonomy'));
   foreach($abt_fields as $field_name => $field) {
-    if(is_array($data)) {
-      unset($data[$field_name]);
-    } elseif(is_object($data) && property_exists($data,$field_name)) {
-      unset($data->{$field_name});
+    if(array_key_exists('abt_map', $field['settings'])) {
+      if(is_array($data)) {
+        unset($data[$field_name]);
+      } elseif(is_object($data) && property_exists($data,$field_name)) {
+        unset($data->{$field_name});
+      }
     }
-
   }
   return $data;
 }
