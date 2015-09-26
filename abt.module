@@ -8,6 +8,7 @@ define('ABT_NO_CONTROL', 0);
 define('ABT_CONTROL_DEFAULT_RESTRICT', 1);
 define('ABT_CONTROL_DEFAULT_ALLOW', 2);
 
+
 /**
  * Implements hook_node_grants().
  *
@@ -84,31 +85,19 @@ function abt_node_access_records($node) {
     if(!property_exists($node,$field_name) || !array_key_exists('abt_map', $realm['settings'])) {
       continue;
     }
-    $allow = array();
+
     $abtmap = $realm['settings']['abt_map'];
-
-    if($abtmap['ctrl_view_access'] == ABT_NO_CONTROL) {
-      $allow['ctrl_view_access'] = 0;
-    }
-    if($abtmap['ctrl_update_access'] == ABT_NO_CONTROL) {
-      $allow['ctrl_update_access'] = 0;
-    }
-    if($abtmap['ctrl_delete_access'] == ABT_NO_CONTROL) {
-      $allow['ctrl_delete_access'] = 0;
-    }
-
 
     $field_data = field_get_items('node', $node, $field_name);
     if(empty($field_data)) {
-      if($abtmap['ctrl_view_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
-        $allow['ctrl_view_access'] = 0;
-      }
-      if($abtmap['ctrl_update_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
-        $allow['ctrl_update_access'] = 0;
-      }
-      if($abtmap['ctrl_delete_access'] == ABT_CONTROL_DEFAULT_ALLOW) {
-        $allow['ctrl_delete_access'] = 0;
-      }
+      $grants[] = AbtUtils::grantConstruct(
+        $node->nid,
+        'abt_'.$realm['field_name'],
+        0,
+        ($abtmap['ctrl_view_access'] == ABT_CONTROL_DEFAULT_ALLOW ? 1 : 0),
+        ($abtmap['ctrl_update_access'] == ABT_CONTROL_DEFAULT_ALLOW ? 1 : 0),
+        ($abtmap['ctrl_delete_access'] == ABT_CONTROL_DEFAULT_ALLOW ? 1 : 0)
+      );
 
     } else {
       $used_tids = array();
@@ -125,25 +114,14 @@ function abt_node_access_records($node) {
                 $node->nid,
                 'abt_'.$field_name,
                 $field_data[$i]['tid'],
-                (array_key_exists('ctrl_view_access', $allow) ? 0 : 1),
-                (array_key_exists('ctrl_update_access', $allow) ? 0 : 1),
-                (array_key_exists('ctrl_delete_access', $allow) ? 0 : 1)
+                ($abtmap['ctrl_view_access'] == ABT_CONTROL_DEFAULT_RESTRICT || $abtmap['ctrl_view_access'] == ABT_CONTROL_DEFAULT_ALLOW ? 1 : 0),
+                ($abtmap['ctrl_update_access'] == ABT_CONTROL_DEFAULT_RESTRICT || $abtmap['ctrl_update_access'] == ABT_CONTROL_DEFAULT_ALLOW ? 1 : 0),
+                ($abtmap['ctrl_delete_access'] == ABT_CONTROL_DEFAULT_RESTRICT || $abtmap['ctrl_delete_access'] == ABT_CONTROL_DEFAULT_ALLOW ? 1 : 0)
               );
             }
           }
         }
       }
-    }
-
-    if(!empty($allow)) {
-      $grants[] = AbtUtils::grantConstruct(
-        $node->nid,
-        'abt_'.$realm['field_name'],
-        0,
-        (array_key_exists('ctrl_view_access', $allow) ? 1 : 0),
-        (array_key_exists('ctrl_update_access', $allow) ? 1 : 0),
-        (array_key_exists('ctrl_delete_access', $allow) ? 1 : 0)
-      );
     }
   }
 
