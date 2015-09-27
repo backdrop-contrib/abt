@@ -24,6 +24,13 @@ function abt_node_access($node, $op, $account) {
   if (($op == 'view') && ($node->status == 0) && !user_access('view unpublished abt controlled nodes') && !(user_access('view own unpublished content') && $account->uid == $node->uid && $account->uid != 0)) {
     return NODE_ACCESS_DENY;
   }
+
+  // since node_node_access() is taking care of create/update/delete permissions, let's just handle $op=view here
+  if(($op == 'view') && ($account->uid == $node->uid) && ($account->uid != 0) && user_access('view own abt controlled nodes')) {
+    return NODE_ACCESS_ALLOW;
+  }
+
+  return NODE_ACCESS_IGNORE;
 }
 
 
@@ -343,6 +350,10 @@ function abt_permission() {
     ),
     'view unpublished abt controlled nodes' => array(
       'title' => t('Allow users to <strong>view</strong> unpublished nodes, controlled with ABT.'),
+      'restrict access' => TRUE,
+    ),
+    'view own abt controlled nodes' => array(
+      'title' => t('Allow users to <strong>view</strong> their own nodes, controlled with ABT.'),
       'restrict access' => TRUE,
     ),
   );
