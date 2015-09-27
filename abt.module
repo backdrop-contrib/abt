@@ -16,6 +16,11 @@ define('ABT_CONTROL_DEFAULT_ALLOW', 2);
  * then the visitor sees "access denied".
  */
 function abt_node_access($node, $op, $account) {
+  if (is_string($node)) {
+    // when checking for access to the content type
+    return NODE_ACCESS_IGNORE;
+  }
+
   if (($op == 'view') && ($node->status == 0) && !user_access('view unpublished abt controlled nodes') && !(user_access('view own unpublished content') && $account->uid == $node->uid && $account->uid != 0)) {
     return NODE_ACCESS_DENY;
   }
