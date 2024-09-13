@@ -16,7 +16,7 @@ class AbtUtils {
    *
    * @param string $terms
    *    Array of terms. Each term must be an object containing
-   *    properties tid, vid & name.
+   *    property tid.
    *
    * @return Array
    *    On success returns array of terms with all their children.
@@ -30,8 +30,8 @@ class AbtUtils {
     }
 
     $first_term_data = taxonomy_term_load($terms[0]['tid']);
-    if (property_exists($first_term_data, 'vid')) {
-      $vid = intval($first_term_data->vid);
+    if (property_exists($first_term_data, 'vocabulary')) {
+      $vocabulary = $first_term_data->vocabulary;
     }
     else {
       return $out;
@@ -40,7 +40,7 @@ class AbtUtils {
 
     foreach ($terms as $tkey => $term) {
       $out[$term['tid']] = $term['tid'];
-      $children = taxonomy_get_tree($vid, $term['tid']);
+      $children = taxonomy_get_tree($vocabulary, $term['tid']);
       foreach ($children as $ckey => $child) {
         $out[$child->tid] = $child->tid;
       }
