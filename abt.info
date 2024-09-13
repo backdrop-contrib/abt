@@ -1,11 +1,10 @@
 name = Access by Term (ABT)
 description = ABT controls access based on relationship between node->term<-user.
-core = 7.x
+backdrop = 1.x
+type = module
 php = 5.x
 package = Access control
-files[] = abt.module
-files[] = abtutils.inc
-files[] = abt.test
 dependencies[] = taxonomy
 dependencies[] = node
 dependencies[] = field
+

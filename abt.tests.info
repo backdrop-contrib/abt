@@ -1,0 +1,24 @@
+[ABTWebTestCase]
+name = ABTWebTestCase
+description = ABTWebTestCase
+group = abt
+file = abt.test
+
+[ABTEnviromentTestCase]
+name = ABT environment test
+description = Test if the environment is setup for the test (terms,fields,users,osv).
+group = Access by Term (ABT)
+file = abt.test
+
+[ABTPermissionFieldTestCase]
+name = ABT field settings test
+description = Test ABT properties for fields (changing the field settings). If user can assign field as access-controlling.
+group = Access by Term (ABT)
+file = abt.test
+
+[ABTPermissionGrantsTestCase]
+name = ABT node access grants test
+description = Test if ABT is restricting/allowing access as designed (takes a few minutes).
+group = Access by Term (ABT)
+file = abt.test
+

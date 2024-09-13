@@ -30,9 +30,10 @@ class AbtUtils {
     }
 
     $first_term_data = taxonomy_term_load($terms[0]['tid']);
-    if(property_exists($first_term_data,'vid')) {
+    if (property_exists($first_term_data, 'vid')) {
       $vid = intval($first_term_data->vid);
-    } else {
+    }
+    else {
       return $out;
     }
     unset($first_term_data);
