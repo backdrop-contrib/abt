@@ -1,5 +1,5 @@
 name = Access by Term (ABT)
-description = ABT controls access based on relationship between node->term<-user.
+description = ABT controls node access based on relationship between node->term<-user.
 backdrop = 1.x
 type = module
 php = 5.x

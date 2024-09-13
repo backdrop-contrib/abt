@@ -1,7 +1,7 @@
-About ABT
-=========
+Access by Term (ABT)
+====================
 
-ABT (Access by Term) is a module that controls node access based on relationship between node->term<-user where taxonomy terms allow for hierarchical content access control.
+Access by Term (ABT) is a module that controls node access based on relationship between node->term<-user where taxonomy terms allow for hierarchical content access control.
 
 - Supports the following permissions:
   - View
