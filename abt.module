@@ -202,8 +202,7 @@ function abt_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id)
 }
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Custom submit function for field_ui_field_edit_form
  */
 function abt_form_field_ui_field_edit_form_submit($form_data) {
   if (
@@ -307,8 +306,7 @@ function abt_user_view($account, $view_mode, $langcode) {
 }
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Helper function to remove fields
  */
 function abt_remove_fields($data) {
   // Fetch field_names used with abt.
@@ -327,7 +325,7 @@ function abt_remove_fields($data) {
 }
 
 /**
- * Implements hook_perm().
+ * Implements hook_permission().
  */
 function abt_permission() {
   return array(
@@ -368,38 +366,6 @@ function abt_permission() {
       'restrict access' => TRUE,
     ),
   );
-}
-
-/**
- * Implements hook_help().
- */
-function abt_help($path, $arg) {
-  if ($path == 'admin/help#abt') {
-    $out = '';
-    $out .= '<h3>' . t('About ABT') . '</h3>';
-    $out .= '<p>' . t('ABT (Access by Term) is a module that controls node access based on relationship between node-&gt;term&lt;-user where taxonomy terms allow for hierarchical content access control.') . '</p>';
-
-    $out .= '<h3>' . t('Installation') . '</h3>';
-    $out .= '<p>' . t('Install & enable.') . '</p>';
-
-    $out .= '<h3>' . t('Usage') . '</h3>';
-    $out .= '<ol>';
-    $out .= '<li>' . t('After enabling the module, make sure you set appropriate permissions for your roles.') . '</li>';
-    $out .= '<li>' . t('Add some taxonomy terms in the vocabularies you intent to use. Do not forget to think hierarchically. ABT handles access inheritance in such way that parent has equal or greater access then it\'s child.') . '</li>';
-    $out .= '<li>' . t('Create fields:');
-    $out .= '<ul>';
-    $out .= '<li>' . t('Add a "Term reference" field instance to the content type(s) you want to control.') . '</li>';
-    $out .= '<li>' . t('Add a "Term reference" field instance to the user.') . '</li>';
-    $out .= '</ul>';
-    $out .= '<p>' . t('ABT has support for multiple access flags, so you may set the field instances to "unlimited" values, if you need. When editing/adding settings for the field instance, pick the type of access to control by checking any or all of the flags view/update/delete. If you check any of these, access for this content type will be controlled by ABT. If none are checked, this remains a regular field. Let\'s say you check only "delete" flag. This would mean you want to control the "delete" access with the field. Other two unchecked boxes will result in "access denied".') . '</p>';
-    $out .= '<p>' . t('If your setup requires, you can create any number of different fields (with different vocabularies attached) and have each control one of the flags (view/update/delete). It\'s completely up to you how you set it up. If you ame to use more then one field per content type - It is your responsibility to make sure that there fields controlling are not overlapping (For example: field A and field B are both set to control view-access for content type Articles - this could have unexpected results).') . '</p>';
-    $out .= '</li>';
-    $out .= '<li>' . t('"Tag" nodes with appropriate access terms.') . '</li>';
-    $out .= '<li>' . t('"Tag" users with appropriate access terms.') . '</li>';
-    $out .= '</ol>';
-
-    return $out;
-  }
 }
 
 /**
